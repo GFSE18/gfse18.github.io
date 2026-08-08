@@ -1389,7 +1389,7 @@ textarea.w-select {
     cursor: pointer;
     color: #fff;
     -webkit-tap-highlight-color: transparent;
-    tap-highlight-color: transparent;
+    -webkit-text-fill-color: transparent;
     -webkit-user-select: none;
     -ms-user-select: none;
     user-select: none;
@@ -6981,5 +6981,215 @@ footer{
 
     .project-detail-media {
         margin-top: 1.5rem;
+    }
+}
+
+/* Smooth scrolling for in-page section links */
+html {
+    scroll-behavior: smooth;
+}
+
+/* Give anchored sections a little breathing room at the top */
+.project-detail-section-block {
+    scroll-margin-top: 2rem;
+}
+
+/* "On This Page" navigation inside former Key Outcome block */
+.project-detail-section-nav-links {
+    margin-top: 0.65rem;
+
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 1.5rem;
+    row-gap: 0.25rem;
+}
+
+.project-detail-section-nav-links a {
+    padding: 0.35rem 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+
+    color: #c2c2c2;
+    font-size: 0.95rem;
+    line-height: 1.4;
+    text-decoration: none;
+
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+
+    transition:
+        color 0.2s,
+        border-color 0.2s,
+        transform 0.2s;
+}
+
+.project-detail-section-nav-links a::after {
+    content: "↓";
+    color: #777;
+    font-size: 0.85rem;
+
+    transition:
+        color 0.2s,
+        transform 0.2s;
+}
+
+.project-detail-section-nav-links a:hover {
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.25);
+    transform: translateX(0.15rem);
+}
+
+.project-detail-section-nav-links a:hover::after {
+    color: #fff;
+    transform: translateY(0.15rem);
+}
+
+/* Mobile: stack section links vertically */
+@media screen and (max-width: 767px) {
+    .project-detail-section-nav-links {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* =========================================
+   PROJECT DETAIL MEDIA GRIDS
+   ========================================= */
+
+.project-detail-media-grid {
+    width: 100%;
+    margin-top: 2rem;
+
+    display: grid;
+    gap: 1rem;
+}
+
+.project-detail-media-grid.is-two {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.project-detail-media-grid.is-three {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* Hero image row gets slightly more top spacing */
+.project-detail-media-grid.is-hero {
+    margin-top: 3rem;
+}
+
+.project-detail-media-grid .project-detail-media {
+    margin: 0;
+}
+
+.project-detail-media-grid .project-detail-media-content {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+}
+
+
+/* =========================================
+   SPECIAL PROJECT DETAIL BLOCKS
+   Uses the same visual shell as "On This Page"
+   ========================================= */
+
+.project-detail-special-block {
+    margin-top: 2rem;
+}
+
+.project-detail-special-block p {
+    margin: 0.75rem 0 0;
+
+    color: #c2c2c2;
+    font-size: 1rem;
+    line-height: 1.65;
+}
+
+.project-detail-special-block .project-detail-media-grid {
+    margin-top: 1.25rem;
+}
+
+
+/* =========================================
+   CONTRIBUTION LIST
+   ========================================= */
+
+.project-detail-contribution-list {
+    margin-top: 1rem;
+    padding-left: 1.25rem;
+
+    color: #b5b5b5;
+    font-size: 1rem;
+    line-height: 1.75;
+}
+
+.project-detail-contribution-list li {
+    margin-bottom: 0.75rem;
+}
+
+
+/* =========================================
+   MOBILE
+   ========================================= */
+
+@media screen and (max-width: 767px) {
+
+    .project-detail-media-grid.is-two,
+    .project-detail-media-grid.is-three {
+        grid-template-columns: 1fr;
+    }
+}
+
+.project-detail-inline-link {
+    display: inline-block;
+    margin-top: 0.35rem;
+
+    color: #2d9cff;
+    font-size: 1rem;
+    line-height: 1.5;
+    text-decoration: none;
+
+    border-bottom: 1px solid rgba(45, 156, 255, 0.65);
+
+    transition:
+        color 0.2s,
+        border-color 0.2s,
+        transform 0.2s;
+}
+
+.project-detail-inline-link:hover {
+    color: #69b8ff;
+    border-color: #69b8ff;
+    transform: translateX(0.15rem);
+}
+
+/* =========================================
+   INTERACTIVE 3D CAD VIEWER
+   ========================================= */
+
+.project-detail-model-viewer {
+    width: 100%;
+    height: min(70vh, 700px);
+    min-height: 500px;
+
+    background-color: rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0.5rem;
+
+    overflow: hidden;
+}
+
+.project-detail-model-viewer model-viewer {
+    width: 100%;
+    height: 100%;
+
+    display: block;
+}
+
+@media screen and (max-width: 767px) {
+    .project-detail-model-viewer {
+        height: 55vh;
+        min-height: 350px;
     }
 }
