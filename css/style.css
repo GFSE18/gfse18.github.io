@@ -7402,3 +7402,17 @@ body.lightbox-open {
         grid-template-columns: 1fr;
     }
 }
+
+.project-detail-media-grid.is-four {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+@media screen and (max-width: 991px) {
+  .project-detail-media-grid.is-four {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media screen and (max-width: 767px) {
+  .project-detail-media-grid.is-four {
+    grid-template-columns: 1fr;
+  }
+}
