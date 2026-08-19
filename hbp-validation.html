@@ -1,0 +1,704 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>
+      Metal 3D Printing Heated Build Plate Validation | Matthew Zhou
+    </title>
+    <link href="css/style.css" rel="stylesheet" />
+    <link href="css/heated-build-plate.css" rel="stylesheet" />
+    <link
+      href="images/GFSE_Seal_SWR-removebg-preview.png"
+      rel="shortcut icon"
+      type="image/x-icon"
+    />
+    <script>
+      window.MathJax = {
+        tex: { inlineMath: [["\\(", "\\)"]], displayMath: [["\\[", "\\]"]] },
+        svg: { fontCache: "global" },
+      };
+    </script>
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"
+    ></script>
+  </head>
+  <body>
+    <div class="page-wrapper">
+      <div class="global-styles w-embed"></div>
+      <div class="page_layout">
+        <div class="sidenav w-nav" role="banner">
+          <div class="sidenav_content">
+            <div class="sidenav_header_indent"></div>
+            <div class="sidenav_header">
+              <a class="sidenav-avatar w-nav-brand" href="../">
+                <div class="portrait w-embed">
+                  <img
+                    alt="Portrait"
+                    class="portrait"
+                    src="images/Portrait Cover.jpg"
+                  />
+                </div>
+              </a>
+            </div>
+          </div>
+          <nav class="sidenav_menu w-nav-menu" role="navigation">
+            <div class="sidenav_list">
+              <a class="sidenav_link w-inline-block" href="../"
+                ><div class="nav-link-icon">🏠</div>
+                <div class="nav-link-text">Home</div></a
+              >
+              <a
+                aria-current="page"
+                class="sidenav_link w-inline-block w--current"
+                href="projects.html"
+                ><div class="nav-link-icon">🛠</div>
+                <div class="nav-link-text">Projects</div></a
+              >
+              <a class="sidenav_link w-inline-block" href="experience.html"
+                ><div class="nav-link-icon">⚙</div>
+                <div class="nav-link-text">Experience</div></a
+              >
+              <a
+                class="sidenav_link w-inline-block"
+                href="documents/Matthew Resume 9T.pdf"
+                target="_blank"
+                ><div class="nav-link-icon">💾</div>
+                <div class="nav-link-text">Resume</div></a
+              >
+              <a
+                class="sidenav_link w-inline-block"
+                href="https://www.linkedin.com/in/matthew-zhou-87aa9a278/"
+                target="_blank"
+                ><div class="nav-link-icon">🔗</div>
+                <div class="nav-link-text">LinkedIn</div></a
+              >
+              <a
+                class="sidenav_link w-inline-block"
+                href="mailto:matthewzhou05@gmail.com"
+                target="_blank"
+                ><div class="nav-link-icon">✉</div>
+                <div class="nav-link-text">Email</div></a
+              >
+              <a
+                class="sidenav_link w-inline-block"
+                href="https://github.com/GFSE18"
+                target="_blank"
+                ><div class="nav-link-icon">💻</div>
+                <div class="nav-link-text">Github</div></a
+              >
+              <div class="dropdown w-dropdown">
+                <div class="dropdown-toggle w-dropdown-toggle">
+                  <div class="sidenav_link lang-drop">
+                    <div class="nav-link-icon">🌐</div>
+                    <div class="nav-link-text">Language</div>
+                  </div>
+                </div>
+                <nav class="lang_dropdown-list w-dropdown-list">
+                  <div class="locales-wrapper w-locales-list">
+                    <div class="locales-list w-locales-items" role="list">
+                      <div
+                        class="lang-local-item w-locales-item"
+                        role="listitem"
+                      >
+                        <a class="lang-text w--current" href="../">English</a>
+                      </div>
+                      <div
+                        class="lang-local-item w-locales-item"
+                        role="listitem"
+                      >
+                        <a class="lang-text" href="../">Deutsch</a>
+                      </div>
+                      <div
+                        class="lang-local-item w-locales-item"
+                        role="listitem"
+                      >
+                        <a class="lang-text" href="../">中文</a>
+                      </div>
+                    </div>
+                  </div>
+                </nav>
+              </div>
+            </div>
+          </nav>
+        </div>
+
+        <main class="main-wrapper">
+          <section class="section_main">
+            <div aria-hidden="true" class="projects-page-bg">
+              <img alt="" src="images/GFSE_Inverse_NBG-removebg-preview.png" />
+            </div>
+            <div class="padding-global">
+              <div class="padding-section-medium project-detail-section">
+                <div class="container-main">
+                  <article class="project-detail-panel">
+                    <a class="project-detail-back-link" href="../projects.html"
+                      >← All Projects</a
+                    >
+
+                    <header class="project-detail-header">
+                      <div class="project-detail-heading-group">
+                        <h1 class="project-detail-title">
+                          Metal 3D Printing Heated Build Plate Validation
+                        </h1>
+                        <p class="project-detail-subtitle">
+                          Validated the design through FEA and cold testing
+                          using machined stainless-steel weights and
+                          hand-soldered strain gauges.
+                        </p>
+                      </div>
+                      <div class="tag-flex project-detail-tags" role="list">
+                        <div class="w-dyn-item" role="listitem">
+                          <div class="tag-item_wrapper">
+                            <div class="subtitle-projects">AMPF</div>
+                          </div>
+                        </div>
+                        <div class="w-dyn-item" role="listitem">
+                          <div class="tag-item_wrapper">
+                            <div class="subtitle-projects">Researcher</div>
+                          </div>
+                        </div>
+                        <div class="w-dyn-item" role="listitem">
+                          <div class="tag-item_wrapper">
+                            <div class="subtitle-projects">
+                              Aug 2025 – Apr 2026
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <nav
+                        aria-label="On this page"
+                        class="project-detail-outcome project-detail-section-nav"
+                      >
+                        <div class="project-detail-outcome-label">
+                          On This Page
+                        </div>
+                        <div class="project-detail-section-nav-links">
+                          <a href="#introduction">Introduction</a>
+                          <a href="#methodology">Methodology</a>
+                          <a href="#soda-can-test-results"
+                            >Soda Can Test Results</a
+                          >
+                          <a href="#cold-test-results">Cold Test Results</a>
+                          <a href="#poster">Poster</a>
+                        </div>
+                      </nav>
+                    </header>
+
+                    <section
+                      class="project-detail-section-block"
+                      id="introduction"
+                    >
+                      <div class="project-detail-text-column">
+                        <h2 class="project-detail-section-title">
+                          Introduction
+                        </h2>
+                        <p>
+                          Directed Energy Deposition (DED) is a metal additive
+                          manufacturing process in which metallic feedstock is
+                          delivered into a localized melt pool created by a
+                          concentrated heat source, typically a laser. As the
+                          melt pool moves, new materials are deposited and
+                          solidifies layer by layer, allowing DED to build
+                          complex metal geometries, add multiple materials, and
+                          repair or modify existing components. Unlike many
+                          conventional manufacturing processes, DED repeatedly
+                          heats a small region of material to very high
+                          temperature while the surrounding part and substrate
+                          remain much cooler. Each deposited layer therefore
+                          experiences a severe heating-and-cooling cycle.
+                        </p>
+                        <p>
+                          These repeated thermal cycles can generate large
+                          temperature gradients and corresponding residual
+                          stress throughout a print. On a cold substrate, the
+                          first deposited layers cool particularly rapidly,
+                          while later layers repeatedly reheat the material
+                          below them. The resulting thermal mismatch can cause
+                          the printed material to pull away from the substrate,
+                          especially at the beginning of a build or as the
+                          footprint of the part becomes larger. Residual stress
+                          can also accumulate through successive layers and
+                          produce vertical cracking through the printed
+                          component. These effects not only reduce print quality
+                          and reliability but also restrict the range of
+                          geometries, materials, and thermal conditions that can
+                          be investigated experimentally.
+                        </p>
+                        <p>
+                          The heated build plate project was developed to
+                          address this problem by controlling the temperature of
+                          the substrate during DED. The system was designed to
+                          heat the build substrate to up to 900 °C while
+                          thermally isolating it from the much cooler rotary
+                          stage beneath it. The assembly combines a high
+                          temperature build substrate with induction heating,
+                          insulating and compliant structural elements, cooling
+                          hardware, and temperature sensing, while retaining the
+                          rotary and tilt motion required for multi-axis
+                          printing.
+                        </p>
+                      </div>
+
+                      <div class="project-detail-media-grid is-three">
+                        <figure class="project-detail-media">
+                          <img
+                            alt="Heated build plate placeholder image 1"
+                            class="project-detail-media-content"
+                            src="images/heated-build-plate/introduction-1.jpg"
+                          />
+                          <figcaption class="project-detail-caption">
+                            Heated build plate placeholder image 1.
+                          </figcaption>
+                        </figure>
+                        <figure class="project-detail-media">
+                          <img
+                            alt="Heated build plate placeholder image 2"
+                            class="project-detail-media-content"
+                            src="images/heated-build-plate/introduction-2.jpg"
+                          />
+                          <figcaption class="project-detail-caption">
+                            Heated build plate placeholder image 2.
+                          </figcaption>
+                        </figure>
+                        <figure class="project-detail-media">
+                          <img
+                            alt="Heated build plate placeholder image 3"
+                            class="project-detail-media-content"
+                            src="images/heated-build-plate/introduction-3.jpg"
+                          />
+                          <figcaption class="project-detail-caption">
+                            Heated build plate placeholder image 3.
+                          </figcaption>
+                        </figure>
+                      </div>
+
+                      <div class="project-detail-text-column">
+                        <p>
+                          Maintaining an elevated substrate temperature reduces
+                          the temperature difference between newly deposited
+                          material and the existing structure, providing a way
+                          to control cooling rate, alleviate thermal cycling,
+                          and improve print quality.
+                        </p>
+                        <p>
+                          By the time I joined the project, the core mechanical
+                          design had already been developed, and the major
+                          components had been fabricated. Previous researchers
+                          had spent approximately two years developing the
+                          mechanical, thermal, and electrical architecture of
+                          the system. Finite-element models were also underway
+                          to evaluate the structure under both mechanical and
+                          thermal loading. However, experimental validation was
+                          needed before their predictions could be relied upon.
+                        </p>
+                        <p>
+                          My main objective was to determine whether the actual
+                          structure behaved in the way predicted by the
+                          finite-element model. The planned validation used
+                          representative weights to reproduce the mechanical
+                          loading of a large metal print and strain gauges
+                          placed at locations where the simulation predicted
+                          relatively high strain. The system could then be
+                          tilted and rotated so that measured strain could be
+                          compared against the simulated load cases. I focused
+                          on turning that validation concept into a practical
+                          experiment: first developing a simple proof-of-concept
+                          loading test, then designing a repeatable cold
+                          structural test using machined stainless-steel weights
+                          and strain gauges and finally comparing the measured
+                          strain response against the FEA predictions.
+                        </p>
+                      </div>
+                    </section>
+
+                    <!-- =========================================
+                         METHODOLOGY
+                         ========================================= -->
+
+                    <section
+                      class="project-detail-section-block"
+                      id="methodology"
+                    >
+                      <div class="project-detail-text-column">
+                        <h2 class="project-detail-section-title">
+                          Methodology
+                        </h2>
+                        <p>
+                          A strain gauge consists of a thin conductive grid
+                          bonded to a flexible backing. When the surface beneath
+                          the gauge stretches or contracts, the grid deforms
+                          with it, producing a proportional resistance change
+                          that can be measured through a bridge circuit and
+                          converted into strain. Because the gauges respond to
+                          deformation of the surface they are bonded to, the
+                          quality of the installation is critical: poor
+                          adhesion, contamination, misalignment, or damaged
+                          solder joints can produce errors in the strain
+                          readings.
+                        </p>
+                        <p>
+                          Installing the gauges required careful surface
+                          preparation and handling. The selected measurement
+                          area was first cleaned and degreased, then lightly
+                          abraded to remove surface oxidation and provide a
+                          consistent bonding surface. The area was then cleaned
+                          and chemically conditioned before the gauge was
+                          aligned with the intended measurement direction and
+                          bonded using adhesive.
+                        </p>
+                      </div>
+
+                      <aside
+                        class="project-detail-outcome project-detail-special-block"
+                      >
+                        <div class="project-detail-outcome-label">
+                          How to Solder the Strain Gauges
+                        </div>
+                        <p>
+                          Strangely enough, every single strain gauge supplied
+                          to us had only two of its three wires soldered even
+                          though all three were required for operation. The
+                          missing lead was an AWG 24 wire that had to be
+                          soldered onto an approximately 1 mm × 1 mm copper tab.
+                          This was not a major problem for me because I have
+                          been soldering since I was 9, but the size and
+                          fragility of the gauge made the process unusually
+                          delicate.
+                        </p>
+                        <p>
+                          I developed a repeatable procedure for completing the
+                          connection. First, I stripped the wire and tinned the
+                          exposed copper strands. I then quickly tinned the tiny
+                          copper tab, limiting the heating time so the
+                          strain-gauge coating would not melt over the pad and
+                          the pad itself would not delaminate. With both
+                          surfaces already tinned, I reheated them just enough
+                          to join the wire to the tab and held the connection
+                          still until the solder solidified. Finally, I tied the
+                          newly soldered wire to the other two factory-soldered
+                          leads to provide strain relief, so an accidental pull
+                          on the cable would be transferred through the bundle
+                          instead of directly into the fragile solder joint.
+                        </p>
+                      </aside>
+
+                      <div class="project-detail-text-column">
+                        <p>
+                          For locations where the strain direction was not known
+                          in advance, a three-element strain-gauge rosette was
+                          used. It combines three gauges at different angles and
+                          allows a two-dimensional surface strain state to be
+                          reconstructed. The measured strains can be related
+                          through the planar strain transformation
+                        </p>
+
+                        <div
+                          class="project-detail-equation-display"
+                          role="math"
+                          aria-label="Planar strain transformation"
+                        >
+                          \[ \varepsilon_{\theta} = \varepsilon_x\cos^2(\theta)
+                          + \varepsilon_y\sin^2(\theta) +
+                          \frac{\gamma_{xy}}{2}\sin(2\theta) \]
+                        </div>
+
+                        <p>
+                          The strain state can therefore be represented by the
+                          tensor
+                        </p>
+
+                        <div
+                          class="project-detail-equation-display"
+                          role="math"
+                          aria-label="Planar strain tensor"
+                        >
+                          \[ \boldsymbol{\varepsilon} = \begin{bmatrix}
+                          \varepsilon_x & \varepsilon_{xy} \\ \varepsilon_{xy} &
+                          \varepsilon_y \end{bmatrix} \]
+                        </div>
+
+                        <p>
+                          where \(\gamma_{xy}=2\varepsilon_{xy}\). With
+                          measurements from the three known gauge orientations,
+                          the unknown \(\varepsilon_x\), \(\varepsilon_y\), and
+                          \(\gamma_{xy}\) can be solved and subsequently
+                          converted into principal strains or compared directly
+                          with the strain components predicted by FEA.
+                        </p>
+
+                        <p>
+                          Before attaching gauges to the heated build plate, I
+                          first performed a soda-can test to verify that
+                          mounting, soldering, acquisition, and strain-reduction
+                          procedure could produce credible measurements. A
+                          sealed aluminum beverage can provide a useful
+                          calibration experiment because it behaves exactly as a
+                          thin-walled pressure vessel whose mechanical response
+                          is well understood. The known internal pressure
+                          creates circumferential (hoop) stress and longitudinal
+                          stress. For a cylindrical thin-walled vessel,
+                        </p>
+
+                        <div
+                          class="project-detail-equation-pair"
+                          aria-label="Thin-walled pressure vessel equations"
+                        >
+                          <div
+                            class="project-detail-equation-display"
+                            role="math"
+                            aria-label="Hoop stress"
+                          >
+                            \[ \sigma_h = \frac{pr}{t} \]
+                          </div>
+                          <div
+                            class="project-detail-equation-display"
+                            role="math"
+                            aria-label="Axial stress"
+                          >
+                            \[ \sigma_a = \frac{pr}{2t} \]
+                          </div>
+                        </div>
+                        <p>
+                          This test can provide a much more controlled
+                          validation case than immediately testing the complex
+                          build-plate assembly and potentially ruining the parts
+                          and wasting strain gauges.
+                        </p>
+                        <p>
+                          The cold test was then designed to validate the
+                          structural FEA of the heated build plate. To reproduce
+                          the mechanical effect of a large printed component, I
+                          designed a set of machined stainless-steel weights and
+                          mounting hardware. The loading system used multiple
+                          cylindrical masses that could be attached at
+                          controlled positions on the build surface with the
+                          most severe configuration placing the load toward the
+                          outer radius of the plate, intentionally generating a
+                          larger bending moment for a worst-case loading
+                          condition.
+                        </p>
+                        <p>
+                          The assembled platform would first be measured in an
+                          unloaded reference condition, after which the known
+                          masses would be installed. The trunnion would then be
+                          tilted and rotated through multiple orientations,
+                          changing the direction of gravity relative to the
+                          structure and providing several load cases from a
+                          single physical setup and allowed the measured strain
+                          at each orientation to be compared directly with the
+                          corresponding FEA prediction.
+                        </p>
+                      </div>
+                    </section>
+
+                    <section
+                      class="project-detail-section-block"
+                      id="soda-can-test-results"
+                    >
+                      <div class="project-detail-text-column">
+                        <h2 class="project-detail-section-title">
+                          Soda Can Test Results
+                        </h2>
+                      </div>
+                      <div class="project-detail-media-grid is-three">
+                        <figure class="project-detail-media">
+                          <img
+                            alt="Soda can test result placeholder image 1"
+                            class="project-detail-media-content"
+                            src="images/heated-build-plate/soda-can-test-1.jpg"
+                          />
+                          <figcaption class="project-detail-caption">
+                            Soda can test result placeholder image 1.
+                          </figcaption>
+                        </figure>
+                        <figure class="project-detail-media">
+                          <img
+                            alt="Soda can test result placeholder image 2"
+                            class="project-detail-media-content"
+                            src="images/heated-build-plate/soda-can-test-2.jpg"
+                          />
+                          <figcaption class="project-detail-caption">
+                            Soda can test result placeholder image 2.
+                          </figcaption>
+                        </figure>
+                        <figure class="project-detail-media">
+                          <img
+                            alt="Soda can test result placeholder image 3"
+                            class="project-detail-media-content"
+                            src="images/heated-build-plate/soda-can-test-3.jpg"
+                          />
+                          <figcaption class="project-detail-caption">
+                            Soda can test result placeholder image 3.
+                          </figcaption>
+                        </figure>
+                      </div>
+                    </section>
+
+                    <section
+                      class="project-detail-section-block"
+                      id="cold-test-results"
+                    >
+                      <div class="project-detail-text-column">
+                        <h2 class="project-detail-section-title">
+                          Cold Test Results
+                        </h2>
+                      </div>
+                      <div class="project-detail-media-grid is-three">
+                        <figure class="project-detail-media">
+                          <img
+                            alt="Cold test result placeholder image 1"
+                            class="project-detail-media-content"
+                            src="images/heated-build-plate/cold-test-1.jpg"
+                          />
+                          <figcaption class="project-detail-caption">
+                            Cold test result placeholder image 1.
+                          </figcaption>
+                        </figure>
+                        <figure class="project-detail-media">
+                          <img
+                            alt="Cold test result placeholder image 2"
+                            class="project-detail-media-content"
+                            src="images/heated-build-plate/cold-test-2.jpg"
+                          />
+                          <figcaption class="project-detail-caption">
+                            Cold test result placeholder image 2.
+                          </figcaption>
+                        </figure>
+                        <figure class="project-detail-media">
+                          <img
+                            alt="Cold test result placeholder image 3"
+                            class="project-detail-media-content"
+                            src="images/heated-build-plate/cold-test-3.jpg"
+                          />
+                          <figcaption class="project-detail-caption">
+                            Cold test result placeholder image 3.
+                          </figcaption>
+                        </figure>
+                      </div>
+                      <div class="project-detail-media-grid is-three">
+                        <figure class="project-detail-media">
+                          <img
+                            alt="Cold test result placeholder image 4"
+                            class="project-detail-media-content"
+                            src="images/heated-build-plate/cold-test-4.jpg"
+                          />
+                          <figcaption class="project-detail-caption">
+                            Cold test result placeholder image 4.
+                          </figcaption>
+                        </figure>
+                        <figure class="project-detail-media">
+                          <img
+                            alt="Cold test result placeholder image 5"
+                            class="project-detail-media-content"
+                            src="images/heated-build-plate/cold-test-5.jpg"
+                          />
+                          <figcaption class="project-detail-caption">
+                            Cold test result placeholder image 5.
+                          </figcaption>
+                        </figure>
+                        <figure class="project-detail-media">
+                          <img
+                            alt="Cold test result placeholder image 6"
+                            class="project-detail-media-content"
+                            src="images/heated-build-plate/cold-test-6.jpg"
+                          />
+                          <figcaption class="project-detail-caption">
+                            Cold test result placeholder image 6.
+                          </figcaption>
+                        </figure>
+                      </div>
+                      <div class="project-detail-media-grid is-three">
+                        <figure class="project-detail-media">
+                          <img
+                            alt="Cold test result placeholder image 7"
+                            class="project-detail-media-content"
+                            src="images/heated-build-plate/cold-test-7.jpg"
+                          />
+                          <figcaption class="project-detail-caption">
+                            Cold test result placeholder image 7.
+                          </figcaption>
+                        </figure>
+                        <figure class="project-detail-media">
+                          <img
+                            alt="Cold test result placeholder image 8"
+                            class="project-detail-media-content"
+                            src="images/heated-build-plate/cold-test-8.jpg"
+                          />
+                          <figcaption class="project-detail-caption">
+                            Cold test result placeholder image 8.
+                          </figcaption>
+                        </figure>
+                        <figure class="project-detail-media">
+                          <img
+                            alt="Cold test result placeholder image 9"
+                            class="project-detail-media-content"
+                            src="images/heated-build-plate/cold-test-9.jpg"
+                          />
+                          <figcaption class="project-detail-caption">
+                            Cold test result placeholder image 9.
+                          </figcaption>
+                        </figure>
+                      </div>
+                    </section>
+
+                    <section class="project-detail-section-block" id="poster">
+                      <div class="project-detail-text-column">
+                        <h2 class="project-detail-section-title">Poster</h2>
+                      </div>
+                      <div class="project-detail-media-grid is-one">
+                        <figure class="project-detail-media">
+                          <img
+                            alt="Heated build plate validation poster"
+                            class="project-detail-media-content project-detail-media-content-natural"
+                            src="images/heated-build-plate/poster.jpg"
+                          />
+                          <figcaption class="project-detail-caption">
+                            Metal 3D Printing Heated Build Plate Validation
+                            poster.
+                          </figcaption>
+                        </figure>
+                      </div>
+                    </section>
+
+                    <nav
+                      aria-label="Project navigation"
+                      class="project-detail-navigation"
+                    >
+                      <a
+                        class="project-detail-navigation-link is-previous"
+                        href="previous-project.html"
+                        ><span class="project-detail-navigation-label"
+                          >Previous Project</span
+                        ><span class="project-detail-navigation-title"
+                          >← In-Plane Shear Testsing Sample and Fixture
+                          Development</span
+                        ></a
+                      >
+                      <a
+                        class="project-detail-navigation-link is-next"
+                        href="next-project.html"
+                        ><span class="project-detail-navigation-label"
+                          >Next Project</span
+                        ><span class="project-detail-navigation-title"
+                          >RoboMaster 2025 Infantry Robot →</span
+                        ></a
+                      >
+                    </nav>
+                  </article>
+                </div>
+              </div>
+            </div>
+            <footer>
+              <div>
+                Powered by <a href="">Greater Footskin Enterprises</a> ®
+              </div>
+            </footer>
+          </section>
+        </main>
+      </div>
+    </div>
+    <script src="js/lightbox.js"></script>
+  </body>
+</html>
