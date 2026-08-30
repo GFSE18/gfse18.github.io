@@ -1,0 +1,981 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>
+      In-Plane Shear Testing Sample and Fixture Development | Matthew Zhou
+    </title>
+    <link href="css/style.css" rel="stylesheet" />
+    <link
+      href="images/GFSE_Seal_SWR-removebg-preview.png"
+      rel="shortcut icon"
+      type="image/x-icon"
+    />
+    <script>
+      window.MathJax = {
+        tex: { inlineMath: [["\\(", "\\)"]], displayMath: [["\\[", "\\]"]] },
+        svg: { fontCache: "global" },
+      };
+    </script>
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"
+    ></script>
+  </head>
+  <body>
+    <div class="page-wrapper">
+      <div class="global-styles w-embed"></div>
+      <div class="page_layout">
+        <div class="sidenav w-nav" role="banner">
+          <div class="sidenav_content">
+            <div class="sidenav_header_indent"></div>
+            <div class="sidenav_header">
+              <a class="sidenav-avatar w-nav-brand" href="../">
+                <div class="portrait w-embed">
+                  <img
+                    alt="Portrait"
+                    class="portrait"
+                    src="images/Portrait Cover.jpg"
+                  />
+                </div>
+              </a>
+            </div>
+          </div>
+          <nav class="sidenav_menu w-nav-menu" role="navigation">
+            <div class="sidenav_list">
+              <a class="sidenav_link w-inline-block" href="../"
+                ><div class="nav-link-icon">🏠</div>
+                <div class="nav-link-text">Home</div></a
+              >
+              <a
+                aria-current="page"
+                class="sidenav_link w-inline-block w--current"
+                href="projects.html"
+                ><div class="nav-link-icon">🛠</div>
+                <div class="nav-link-text">Projects</div></a
+              >
+              <a class="sidenav_link w-inline-block" href="experience.html"
+                ><div class="nav-link-icon">⚙</div>
+                <div class="nav-link-text">Experience</div></a
+              >
+              <a
+                class="sidenav_link w-inline-block"
+                href="documents/Matthew Resume 9T.pdf"
+                target="_blank"
+                ><div class="nav-link-icon">💾</div>
+                <div class="nav-link-text">Resume</div></a
+              >
+              <a
+                class="sidenav_link w-inline-block"
+                href="https://www.linkedin.com/in/matthew-zhou-87aa9a278/"
+                target="_blank"
+                ><div class="nav-link-icon">🔗</div>
+                <div class="nav-link-text">LinkedIn</div></a
+              >
+              <a
+                class="sidenav_link w-inline-block"
+                href="mailto:matthewzhou05@gmail.com"
+                target="_blank"
+                ><div class="nav-link-icon">✉</div>
+                <div class="nav-link-text">Email</div></a
+              >
+              <a
+                class="sidenav_link w-inline-block"
+                href="https://github.com/GFSE18"
+                target="_blank"
+                ><div class="nav-link-icon">💻</div>
+                <div class="nav-link-text">Github</div></a
+              >
+              <div class="dropdown w-dropdown">
+                <div class="dropdown-toggle w-dropdown-toggle">
+                  <div class="sidenav_link lang-drop">
+                    <div class="nav-link-icon">🌐</div>
+                    <div class="nav-link-text">Language</div>
+                  </div>
+                </div>
+                <nav class="lang_dropdown-list w-dropdown-list">
+                  <div class="locales-wrapper w-locales-list">
+                    <div class="locales-list w-locales-items" role="list">
+                      <div
+                        class="lang-local-item w-locales-item"
+                        role="listitem"
+                      >
+                        <a class="lang-text w--current" href="../">English</a>
+                      </div>
+                      <div
+                        class="lang-local-item w-locales-item"
+                        role="listitem"
+                      >
+                        <a class="lang-text" href="../">Deutsch</a>
+                      </div>
+                      <div
+                        class="lang-local-item w-locales-item"
+                        role="listitem"
+                      >
+                        <a class="lang-text" href="../">中文</a>
+                      </div>
+                    </div>
+                  </div>
+                </nav>
+              </div>
+            </div>
+          </nav>
+        </div>
+
+        <main class="main-wrapper">
+          <section class="section_main">
+            <div aria-hidden="true" class="projects-page-bg">
+              <img alt="" src="images/GFSE_Inverse_NBG-removebg-preview.png" />
+            </div>
+            <div class="padding-global">
+              <div class="padding-section-medium project-detail-section">
+                <div class="container-main">
+                  <article class="project-detail-panel">
+                    <a class="project-detail-back-link" href="../projects.html"
+                      >← All Projects</a
+                    >
+
+                    <header class="project-detail-header">
+                      <div class="project-detail-heading-group">
+                        <h1 class="project-detail-title">
+                          In-Plane Shear Testing Sample and Fixture Development
+                        </h1>
+                        <p class="project-detail-subtitle">
+                          Introduced a new specimen geometry for tube-extrusion
+                          material testing and designed a fixture capable of
+                          applying both torsional and axial loads.
+                        </p>
+                      </div>
+                      <div class="tag-flex project-detail-tags" role="list">
+                        <div class="w-dyn-item" role="listitem">
+                          <div class="tag-item_wrapper">
+                            <div class="subtitle-projects">AMPF</div>
+                          </div>
+                        </div>
+                        <div class="w-dyn-item" role="listitem">
+                          <div class="tag-item_wrapper">
+                            <div class="subtitle-projects">Researcher</div>
+                          </div>
+                        </div>
+                        <div class="w-dyn-item" role="listitem">
+                          <div class="tag-item_wrapper">
+                            <div class="subtitle-projects">PURA Grant</div>
+                          </div>
+                        </div>
+                        <div class="w-dyn-item" role="listitem">
+                          <div class="tag-item_wrapper">
+                            <div class="subtitle-projects">
+                              Jan 2026 – May 2026
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <nav
+                        aria-label="On this page"
+                        class="project-detail-outcome project-detail-section-nav"
+                      >
+                        <div class="project-detail-outcome-label">
+                          On This Page
+                        </div>
+                        <div class="project-detail-section-nav-links">
+                          <a href="#introduction">Introduction</a>
+                          <a href="#methodology">Methodology</a>
+                          <a href="#sample-design">Sample Design</a>
+                          <a href="#fixture-design">Fixture Design</a>
+                          <a href="#results">Results</a>
+                          <a href="#references">References</a>
+                        </div>
+                      </nav>
+                    </header>
+
+                    <section
+                      class="project-detail-section-block"
+                      id="introduction"
+                    >
+                      <div class="project-detail-text-column">
+                        <h2 class="project-detail-section-title">
+                          Introduction
+                        </h2>
+                        <p>
+                          Most engineering metals are polycrystalline, meaning
+                          that a macroscopic piece of material is composed of
+                          many individual crystals, or grains. Within each
+                          grain, atoms are arranged in an ordered crystal
+                          lattice, and each grain can have a different
+                          crystallographic orientation relative to the overall
+                          part. Because deformation is easier along some
+                          crystallographic planes and directions than others, an
+                          individual grain is inherently direction dependent. In
+                          a polycrystal with nearly random grain orientations,
+                          these differences can average out, and the material
+                          may behave approximately isotopically.
+                        </p>
+                        <p>
+                          Manufacturing processes such as rolling, drawing,
+                          forging, and extrusion, however, tend to rotate grains
+                          into preferred orientations, creating crystallographic
+                          texture. Once a strong texture develops, properties
+                          such as yield strength, ductility, hardening, and
+                          shear response can vary with loading direction.
+                          Processing history, grain texture, and
+                          crystallographic texture therefore play an important
+                          role in determining the anisotropy and asymmetry
+                          measured at the bulk scale.
+                        </p>
+                        <p>
+                          Much of this directional behavior originates from the
+                          mechanisms by which crystals plastically deform. The
+                          most common mechanism is dislocation slip, which
+                          occurs along specific combinations of crystallographic
+                          planes and directions called slip systems. Whether a
+                          particular slip system activates depends on both the
+                          applied stress and the orientation of the grain. Two
+                          grains subjected to the same external load can
+                          therefore respond differently: one may be favorably
+                          oriented for an easy slip system and begin deforming
+                          plastically, while another remains relatively
+                          resistant.
+                        </p>
+                        <p>
+                          The three most common metallic crystal
+                          structures—face-centered cubic (FCC), body-centered
+                          cubic (BCC), and hexagonal close-packed (HCP)—differ
+                          significantly in their available slip systems. FCC
+                          metals have 12 primary slip systems, allowing plastic
+                          deformation to occur relatively easily in many
+                          directions. BCC metals have 48 possible slip systems,
+                          although these are generally harder to activate
+                          because BCC crystals lack close-packed slip planes.
+                          HCP metals have only 3 primary basal slip systems that
+                          are readily activated at room temperature, with
+                          additional prismatic and pyramidal systems requiring
+                          higher stresses. As a result, HCP metals tend to show
+                          stronger directional dependence in deformation,
+                          especially when crystallographic texture is present.
+                        </p>
+                        <p>
+                          When regular slip cannot easily accommodate
+                          deformation, the crystal can deform through twinning.
+                          Instead of atoms simply sliding past one another, a
+                          group of atoms shifts together in an organized way,
+                          causing part of the crystal to rotate into a new
+                          orientation. This changes how that region responds to
+                          later loading because different slip systems may
+                          become easier or harder to activate. As a result,
+                          twinning can change the material's strength and
+                          contribute to differences between its behavior in
+                          tension and compression.
+                        </p>
+                        <p>
+                          These effects make the characterization of processed
+                          tubular materials particularly challenging. A tube is
+                          naturally described using cylindrical material
+                          coordinates: Z, along the longitudinal or extrusion
+                          direction; θ, around the circumference; and R, through
+                          the wall thickness. The associated shear behaviors
+                          occur in the Z–θ, R–θ, and R–Z planes. Conventional
+                          mechanical testing, however, is much better
+                          established for materials described in Cartesian
+                          coordinates while equivalent methods are less
+                          developed for cylindrical coordinates. Conventional
+                          torsional loading of a tube primarily characterizes
+                          the Z–θ shear response, leaving the other cylindrical
+                          shear components unaccounted for.
+                        </p>
+                      </div>
+
+                      <div class="project-detail-media-grid is-three">
+                        <figure class="project-detail-media">
+                          <img
+                            alt="Cylindrical material-coordinate diagram placeholder"
+                            class="project-detail-media-content"
+                            src="images/pura-mech-test/introduction-1.jpg"
+                          />
+                          <figcaption class="project-detail-caption">
+                            Cylindrical material-coordinate diagram placeholder.
+                          </figcaption>
+                        </figure>
+                        <figure class="project-detail-media">
+                          <img
+                            alt="Crystal structure comparison placeholder"
+                            class="project-detail-media-content"
+                            src="images/pura-mech-test/introduction-2.jpg"
+                          />
+                          <figcaption class="project-detail-caption">
+                            Crystal structure comparison placeholder.
+                          </figcaption>
+                        </figure>
+                        <figure class="project-detail-media">
+                          <img
+                            alt="Tube-extrusion texture placeholder"
+                            class="project-detail-media-content"
+                            src="images/pura-mech-test/introduction-3.jpg"
+                          />
+                          <figcaption class="project-detail-caption">
+                            Tube-extrusion texture placeholder.
+                          </figcaption>
+                        </figure>
+                      </div>
+
+                      <div class="project-detail-text-column">
+                        <p>
+                          A further complication is that conventional specimen
+                          preparation can disturb the very properties being
+                          measured. For transverse characterization of tubular
+                          material, ASTM E8 permits a ring to be removed from a
+                          tube, flattened, and then machined into a conventional
+                          tensile specimen. This procedure can change the
+                          anisotropy and asymmetry of the material through
+                          hardening or softening by activating slip, twinning,
+                          and residual stresses before the actual
+                          characterization test is performed. For materials
+                          whose properties depend strongly on crystallographic
+                          orientation and deformation history, this creates an
+                          important uncertainty in the measured data.
+                        </p>
+                        <p>
+                          One potential solution is the Brosius twin-bridge
+                          shear geometry. The specimen consists of an inner
+                          circular region and an outer ring connected by two
+                          narrow shear bridges formed by tangential slots.
+                          Applying differential motion between the inner and
+                          outer regions concentrates deformation within these
+                          bridges. The twin-bridge arrangement was developed to
+                          create a controlled shear state while avoiding the
+                          unwanted moment produced by one-sided shear specimens
+                          and the averaging of oppositely directed shear zones
+                          that can occur in some symmetric shear configurations.
+                          Previous work on the Brosius geometry focused on flat
+                          sheet materials defined in Cartesian coordinates,
+                          rather than on specimens that preserve the natural
+                          cylindrical coordinate system of a tube. Adapting the
+                          geometry directly to a tube provides a possible route
+                          to characterizing shear with the original R–θ–Z
+                          material directions preserved. Differential rotation
+                          between the inner and outer portions of the specimen
+                          can generate R–θ shear, while differential translation
+                          can generate R–Z shear, creating shear states that
+                          conventional tube torsion cannot.
+                        </p>
+                      </div>
+
+                      <div class="project-detail-media-grid is-three">
+                        <figure class="project-detail-media">
+                          <img
+                            alt="Original sheet Brosius geometry placeholder"
+                            class="project-detail-media-content"
+                            src="images/pura-mech-test/introduction-4.jpg"
+                          />
+                          <figcaption class="project-detail-caption">
+                            Original sheet Brosius geometry placeholder.
+                          </figcaption>
+                        </figure>
+                        <figure class="project-detail-media">
+                          <img
+                            alt="Adapted tube-ring geometry placeholder"
+                            class="project-detail-media-content"
+                            src="images/pura-mech-test/introduction-5.jpg"
+                          />
+                          <figcaption class="project-detail-caption">
+                            Adapted tube-ring geometry placeholder.
+                          </figcaption>
+                        </figure>
+                        <figure class="project-detail-media">
+                          <img
+                            alt="Differential loading modes placeholder"
+                            class="project-detail-media-content"
+                            src="images/pura-mech-test/introduction-6.jpg"
+                          />
+                          <figcaption class="project-detail-caption">
+                            Differential loading modes placeholder.
+                          </figcaption>
+                        </figure>
+                      </div>
+
+                      <div class="project-detail-text-column">
+                        <p>
+                          Therefore, the project’s goal is to modify the testing
+                          method so that it fits the geometry and material
+                          directions produced by manufacturing. Gaps remain in
+                          the mechanical testing of extruded tubes, and
+                          experimental and computational evaluation of
+                          differential inner-outer torsion and translation using
+                          Brosius geometry is needed. Successful validation of
+                          this approach could provide a more direct way to
+                          characterize cylindrical shear responses, improve
+                          calibration of anisotropic constitutive and yield
+                          models, and ultimately provide material-property data
+                          that more accurately represents the behavior of
+                          tubular components in their as-manufactured state.
+                        </p>
+                      </div>
+                    </section>
+
+                    <section
+                      class="project-detail-section-block"
+                      id="methodology"
+                    >
+                      <div class="project-detail-text-column">
+                        <h2 class="project-detail-section-title">
+                          Methodology
+                        </h2>
+                        <p>
+                          The first major decision was material selection.
+                          Candidate materials included magnesium, zinc, and
+                          titanium alloys because they can exhibit anisotropic
+                          behavior associated with low-symmetry crystal
+                          structures and processing-induced texture. The
+                          candidates were compared based on mechanical strength,
+                          availability in suitable tube extrusion sizes,
+                          availability, pricing, and machinability.
+                          Titanium-based materials were rejected since their
+                          relatively high strength would require either larger
+                          test loads or much smaller gauge sections that would
+                          complicate testing and specimen fabrication. Zinc was
+                          also considered because of its HCP structure and
+                          comparatively low strength, but suitable extruded
+                          tubing was difficult to source in the dimensions
+                          required. After contacting vendors and comparing
+                          available stock, AZ31B magnesium was selected because
+                          it provided the best combination of tube availability,
+                          relatively low cost, machinability, and a strength
+                          level practical for the intended experiments, also
+                          possessing the anisotropic and twinning-related
+                          properties of our interest.
+                        </p>
+                        <p>
+                          Two specimen geometries were then developed from the
+                          same raw tube extrusion. The first was the adapted
+                          Brosius twin-bridge specimen machined from a short
+                          ring of the tube. The second geometry was a
+                          reduced-wall tube specimen intended for conventional
+                          torsional loading, included as a comparison case to
+                          the Brosius geometry. Simple torsion of a tube
+                          produces the Z–θ shear state, while the Brosius
+                          specimen produces R–θ and R–Z shear states. Testing
+                          both specimen types from the same extrusion therefore
+                          provides a common material baseline and allows the new
+                          geometry to be compared against an established loading
+                          condition.
+                        </p>
+                        <p>
+                          To make this comparison meaningful, the reduced
+                          section of the torsion specimen and the combined area
+                          of the two Brosius bridges were designed to have the
+                          same effective shear area in their gauge regions. The
+                          gauge region volumes were also kept similar so that
+                          the amount of material participating in deformation
+                          could be comparable. Controlling area and volume
+                          reduces geometric differences and reinforces the
+                          comparison of resulting stress-strain responses.
+                          Another important design requirement was the radial
+                          location of the gauge material within the original
+                          tube wall. Both specimen geometries were designed to
+                          have their gauge regions at the midpoint between the
+                          original inner and outer surfaces to ensure that both
+                          tests characterize material from the same radial
+                          location. Because extrusion may produce variations in
+                          texture or microstructure through the wall thickness,
+                          doing this could reduce differences unrelated to the
+                          test geometry itself.
+                        </p>
+                      </div>
+
+                      <div class="project-detail-media-grid is-three">
+                        <figure class="project-detail-media">
+                          <img
+                            alt="Raw AZ31B extrusion placeholder"
+                            class="project-detail-media-content"
+                            src="images/pura-mech-test/methodology-1.jpg"
+                          />
+                          <figcaption class="project-detail-caption">
+                            Raw AZ31B extrusion placeholder.
+                          </figcaption>
+                        </figure>
+                        <figure class="project-detail-media">
+                          <img
+                            alt="Twin-bridge specimen placeholder"
+                            class="project-detail-media-content"
+                            src="images/pura-mech-test/methodology-2.jpg"
+                          />
+                          <figcaption class="project-detail-caption">
+                            Twin-bridge specimen placeholder.
+                          </figcaption>
+                        </figure>
+                        <figure class="project-detail-media">
+                          <img
+                            alt="Reduced-wall torsion specimen placeholder"
+                            class="project-detail-media-content"
+                            src="images/pura-mech-test/methodology-3.jpg"
+                          />
+                          <figcaption class="project-detail-caption">
+                            Reduced-wall torsion specimen placeholder.
+                          </figcaption>
+                        </figure>
+                      </div>
+
+                      <div class="project-detail-text-column">
+                        <p>
+                          The experimental plan was organized around the three
+                          shear states of the cylindrical R–θ–Z coordinate
+                          system. The reduced-wall tube specimen would first be
+                          tested in torsion to characterize Z–θ shear. The
+                          Brosius specimen would then be tested in two modes.
+                          Relative rotation between the inner and outer regions
+                          would generate R–θ shear, while relative axial
+                          translation would generate R–Z shear. Loading would
+                          also be repeated in opposite directions—clockwise and
+                          counterclockwise rotation, or positive and negative
+                          translation—to investigate whether the shear response
+                          itself shows directional asymmetry. Strain measurement
+                          was planned to use Digital Image Correlation (DIC) so
+                          that specific deformation process of the shear bridges
+                          could be captured.
+                        </p>
+                      </div>
+                    </section>
+
+                    <section
+                      class="project-detail-section-block"
+                      id="sample-design"
+                    >
+                      <div class="project-detail-text-column">
+                        <h2 class="project-detail-section-title">
+                          Sample Design
+                        </h2>
+                        <p>
+                          The sample geometry was developed around a small set
+                          of material, equipment, and manufacturing constraints.
+                          Testing was planned on an MTS Landmark 370.02
+                          axial–torsional servohydraulic load frame equipped for
+                          simultaneous axial and torsional loading. The AMPF
+                          machine is nominally rated to approximately 25 kN
+                          axial load and 250 N·m torque, while the installed
+                          coupling shown on the machine is labeled 25 kN axial
+                          and 200 N·m torsional. Because the coupling is the
+                          more restrictive component in the actual test
+                          configuration, I used
+                        </p>
+
+                        <div
+                          class="project-detail-equation-display"
+                          role="math"
+                          aria-label="Practical axial and torsional design limits"
+                        >
+                          \[ F_{\max}=25\text{ kN}, \qquad T_{\max}=200\text{
+                          N}\cdot\text{m} \]
+                        </div>
+
+                        <p>
+                          as the practical design limits for specimen sizing.
+                          This ensured that the specimens could be brought to
+                          failure without exceeding the capacity of the
+                          installed hardware.
+                        </p>
+                        <p>
+                          The raw tube was defined by its outer radius \(r_o\)
+                          and inner radius \(r_i\). For the Brosius specimen,
+                          \(h\) represents the axial thickness of the ring, and
+                          each shear bridge occupies a fraction
+                        </p>
+
+                        <div
+                          class="project-detail-equation-display"
+                          role="math"
+                          aria-label="Shear bridge circumference fraction"
+                        >
+                          \[ f=\frac{1}{6} \]
+                        </div>
+
+                        <p>
+                          of the circumference. For the comparison tube
+                          specimen, \(s\) represents the amount machined
+                          symmetrically from both sides of the original wall:
+                          the outer radius is reduced to \(r_o-s\), while the
+                          inner radius is enlarged to \(r_i+s\). These
+                          quantities formed the principal geometric variables
+                          used in the sizing calculations.
+                        </p>
+                        <p>
+                          The primary material constant was the estimated shear
+                          strength of AZ31B magnesium. Published values
+                          suggested a shear strength on the order of 130–145
+                          MPa, but those values were not necessarily
+                          representative of the maximum stress that might be
+                          reached after strain hardening. For an ideal isotropic
+                          and symmetric material, axial and shear strengths
+                          scale approximately by a factor of \(\sqrt{2}\).
+                          Applying that relationship to the available tensile
+                          and compressive strengths suggested that shear
+                          strength could, in an upper-bound case, approach
+                          approximately 205 MPa. Because AZ31B is anisotropic
+                          and tension-compression asymmetric, and because pure
+                          shear may exhibit less hardening than axial loading,
+                          this value was treated as a conservative design
+                          estimate rather than an expected experimental result.
+                          I therefore used
+                        </p>
+
+                        <div
+                          class="project-detail-equation-display"
+                          role="math"
+                          aria-label="AZ31B design shear strength"
+                        >
+                          \[ \tau=200\text{ MPa} \]
+                        </div>
+
+                        <p>
+                          for specimen sizing. This deliberately high design
+                          value ensured that the specimen geometry remained
+                          testable even if the actual material response was
+                          stronger than the lower published shear-strength
+                          range.
+                        </p>
+                        <p>
+                          For the Brosius specimen under differential torsion,
+                          the total shear area of the two bridges is
+                        </p>
+
+                        <div
+                          class="project-detail-equation-display"
+                          role="math"
+                          aria-label="Total Brosius bridge shear area"
+                        >
+                          \[ A_B=2\pi f h\left(\frac{r_o+r_i}{2}\right) \]
+                        </div>
+
+                        <p>
+                          The shear force at failure is \(F_s=\tau A_B\).
+                          Assuming that this force acts approximately at the
+                          mean tube radius,
+                        </p>
+
+                        <div
+                          class="project-detail-equation-display"
+                          role="math"
+                          aria-label="Mean tube radius"
+                        >
+                          \[ r_m=\frac{r_o+r_i}{2} \]
+                        </div>
+
+                        <p>the corresponding torque is</p>
+
+                        <div
+                          class="project-detail-equation-display"
+                          role="math"
+                          aria-label="Brosius specimen failure torque"
+                        >
+                          \[ T=F_s r_m=2\pi\tau f h
+                          \left(\frac{r_o+r_i}{2}\right)^2 \]
+                        </div>
+
+                        <p>
+                          Solving for the required Brosius sample thickness
+                          gives
+                        </p>
+
+                        <div
+                          class="project-detail-equation-display"
+                          role="math"
+                          aria-label="Required Brosius sample thickness"
+                        >
+                          \[ h=\frac{2T}{\pi\tau f(r_o+r_i)^2} \]
+                        </div>
+
+                        <p>
+                          This equation directly connects the specimen thickness
+                          to the available torque, assumed material strength,
+                          bridge fraction, and raw tube dimensions. A larger
+                          tube increases the moment arm of the shear bridges and
+                          therefore permits a thinner specimen for the same
+                          failure torque, while a smaller tube requires a
+                          thicker shear region. This relationship was one of the
+                          main constraints used when exploring candidate tube
+                          sizes.
+                        </p>
+                        <p>
+                          The reduced-wall tube specimen was designed as a
+                          comparison specimen, so its active shear area was
+                          intentionally matched to that of the Brosius specimen.
+                          After machining equally from the inner and outer
+                          surfaces, its gauge-section radii become
+                        </p>
+
+                        <div
+                          class="project-detail-equation-display"
+                          role="math"
+                          aria-label="Machined tube gauge-section radii"
+                        >
+                          \[ r_{o,m}=r_o-s, \qquad r_{i,m}=r_i+s \]
+                        </div>
+
+                        <p>Its annular cross-sectional area is therefore</p>
+
+                        <div
+                          class="project-detail-equation-display"
+                          role="math"
+                          aria-label="Reduced-wall tube shear area"
+                        >
+                          \[ A_T=\pi\left[(r_o-s)^2-(r_i+s)^2\right] \]
+                        </div>
+
+                        <p>
+                          Setting this equal to the combined Brosius bridge area
+                          gives
+                        </p>
+
+                        <div
+                          class="project-detail-equation-display"
+                          role="math"
+                          aria-label="Matched specimen shear areas"
+                        >
+                          \[ \pi\left[(r_o-s)^2-(r_i+s)^2\right] =2\pi f
+                          h\left(\frac{r_o+r_i}{2}\right) \]
+                        </div>
+
+                        <p>which simplifies to</p>
+
+                        <div
+                          class="project-detail-equation-display"
+                          role="math"
+                          aria-label="Brosius thickness from matched shear areas"
+                        >
+                          \[ h=\frac{(r_o-s)^2-(r_i+s)^2}{f(r_o+r_i)} \]
+                        </div>
+
+                        <p>
+                          Combining this relationship with the torque equation
+                          allowed \(s\) to be solved for every candidate pair of
+                          \(r_o\) and \(r_i\). In other words, once a
+                          commercially available raw tube size was selected, the
+                          equations determined both how thick the Brosius ring
+                          should be and how much material should be removed from
+                          the comparison tube specimen. This kept the two
+                          specimens tied to the same material-strength and
+                          shear-area assumptions instead of sizing them
+                          independently. The MATLAB study treated \(r_o\) and
+                          \(r_i\) as the independent variables and calculated
+                          the corresponding \(h\) and \(s\) over the feasible
+                          design space.
+                        </p>
+                        <p>
+                          The geometry also had to remain suitable for the
+                          second Brosius loading mode: differential axial
+                          translation. Under axial loading, the same two bridges
+                          carry shear, so the force required to reach the
+                          assumed shear strength is
+                        </p>
+
+                        <div
+                          class="project-detail-equation-display"
+                          role="math"
+                          aria-label="Brosius specimen axial failure load"
+                        >
+                          \[ F=2\pi\tau f h \left(\frac{r_o+r_i}{2}\right) \]
+                        </div>
+
+                        <p>
+                          Every candidate geometry therefore had to remain below
+                          the 25 kN axial capacity as well as satisfy the
+                          torsional requirement. This was important because a
+                          specimen optimized only for torsion could otherwise
+                          require an impractically large axial force when used
+                          for R–Z shear testing.
+                        </p>
+                        <p>
+                          Several manufacturing constraints further reduced the
+                          feasible design region. After machining, the
+                          comparison tube needed at least approximately 2 mm of
+                          remaining wall thickness,
+                        </p>
+
+                        <div
+                          class="project-detail-equation-display"
+                          role="math"
+                          aria-label="Minimum machined tube wall thickness"
+                        >
+                          \[ t_m=(r_o-s)-(r_i+s)=(r_o-r_i)-2s \geq 2\text{ mm}
+                          \]
+                        </div>
+
+                        <p>
+                          so that the thin gauge section could still be machined
+                          reliably. The Brosius specimen also could not become
+                          so thick that its bridges would be susceptible to
+                          unwanted deformation modes or so tall and slender that
+                          axial loading could cause buckling rather than the
+                          intended shear failure. The remaining inner and outer
+                          regions also needed enough material for the fixture to
+                          grip without crushing the specimen. These geometric
+                          and manufacturing constraints were considered
+                          alongside the torque and axial-load equations rather
+                          than after the fact.
+                        </p>
+                        <p>
+                          I implemented these relationships in MATLAB and
+                          evaluated the feasible design space across
+                          combinations of available tube inner and outer
+                          diameters. The plots made it possible to see how raw
+                          tube diameter affected Brosius thickness, required
+                          tube-wall reduction, remaining machinable wall
+                          thickness, and predicted axial failure load
+                          simultaneously. This converted the problem from
+                          manually checking individual tube sizes into a
+                          constrained parameter study. The final selected raw
+                          extrusion had an outer diameter of 29 mm and an inner
+                          diameter of 8 mm, providing a workable balance between
+                          test-machine capacity, machining limits, gauge
+                          geometry, and fixture engagement.
+                        </p>
+                      </div>
+                      <div class="project-detail-media-grid is-three">
+                        <figure class="project-detail-media">
+                          <img
+                            alt="Cylindrical material-coordinate diagram placeholder"
+                            class="project-detail-media-content"
+                            src="images/pura-mech-test/sample-design.png"
+                          />
+                          <figcaption class="project-detail-caption">
+                            Design of the Brosius sample.
+                          </figcaption>
+                        </figure>
+                        <figure class="project-detail-media">
+                          <img
+                            alt="Crystal structure comparison placeholder"
+                            class="project-detail-media-content"
+                            src="images/pura-mech-test/sample-plot-1.png"
+                          />
+                          <figcaption class="project-detail-caption">
+                            Mapping tube test wall thicknesses across stock
+                            dimensions.
+                          </figcaption>
+                        </figure>
+                        <figure class="project-detail-media">
+                          <img
+                            alt="Tube-extrusion texture placeholder"
+                            class="project-detail-media-content"
+                            src="images/pura-mech-test/sample-plot-2.png"
+                          />
+                          <figcaption class="project-detail-caption">
+                            Torque-limited Brosius sample height across stock
+                            dimensions.
+                          </figcaption>
+                        </figure>
+                      </div>
+                      <div class="project-detail-media-grid is-three">
+                        <figure class="project-detail-media">
+                          <img
+                            alt="Cylindrical material-coordinate diagram placeholder"
+                            class="project-detail-media-content"
+                            src="images/pura-mech-test/sample-plot-3.png"
+                          />
+                          <figcaption class="project-detail-caption">
+                            Mapping reduced wall thickess across stock
+                            dimensions.
+                          </figcaption>
+                        </figure>
+                        <figure class="project-detail-media">
+                          <img
+                            alt="Crystal structure comparison placeholder"
+                            class="project-detail-media-content"
+                            src="images/pura-mech-test/sample-plot-4.png"
+                          />
+                          <figcaption class="project-detail-caption">
+                            Area-matched Brosius sample height across stock
+                            dimensions.
+                          </figcaption>
+                        </figure>
+                        <figure class="project-detail-media">
+                          <img
+                            alt="Tube-extrusion texture placeholder"
+                            class="project-detail-media-content"
+                            src="images/pura-mech-test/sample-plot-5.png"
+                          />
+                          <figcaption class="project-detail-caption">
+                            Mapping axial load required to shear the sample at
+                            each size.
+                          </figcaption>
+                        </figure>
+                      </div>
+                    </section>
+
+                    <section
+                      class="project-detail-section-block"
+                      id="fixture-design"
+                    >
+                      <div class="project-detail-text-column">
+                        <h2 class="project-detail-section-title">
+                          Fixture Design
+                        </h2>
+                      </div>
+                    </section>
+
+                    <section class="project-detail-section-block" id="results">
+                      <div class="project-detail-text-column">
+                        <h2 class="project-detail-section-title">Results</h2>
+                        <p>
+                          As of May 2026, the project was paused at the fixture
+                          finishing phase due to a purchasing procedure problem
+                          with the AZ31B magnesium tube extrusion. Expect to
+                          continue in January 2027.
+                        </p>
+                      </div>
+                    </section>
+                    <section
+                      class="project-detail-section-block"
+                      id="references"
+                    >
+                      <div class="project-detail-text-column">
+                        <h2 class="project-detail-section-title">References</h2>
+                        <p>
+                          [1] Z. Brunson, “The Development of Novel
+                          Six-Dimensional Anisotropic and Asymmetric Yield
+                          Approaches Applied to the Study of Dwell Fatigue Using
+                          Various X-Ray Techniques,” Ph.D. dissertation, Dept.
+                          Mech. Eng., Colorado School of Mines, Golden, CO, USA,
+                          2021.
+                        </p>
+                      </div>
+                    </section>
+                    <nav
+                      aria-label="Project navigation"
+                      class="project-detail-navigation"
+                    >
+                      <a
+                        class="project-detail-navigation-link is-previous"
+                        href="arcc-2026-hero.html"
+                        ><span class="project-detail-navigation-label"
+                          >Previous Project</span
+                        ><span class="project-detail-navigation-title"
+                          >← ARCC 2026 Hero Robot</span
+                        ></a
+                      >
+                      <a
+                        class="project-detail-navigation-link is-next"
+                        href="hbp-validation.html"
+                        ><span class="project-detail-navigation-label"
+                          >Next Project</span
+                        ><span class="project-detail-navigation-title"
+                          >Metal 3D Printing Heated Build Plate Validation
+                          →</span
+                        ></a
+                      >
+                    </nav>
+                  </article>
+                </div>
+              </div>
+            </div>
+            <footer>
+              <div>
+                Powered by <a href="">Greater Footskin Enterprises</a> ®
+              </div>
+            </footer>
+          </section>
+        </main>
+      </div>
+    </div>
+    <script src="js/lightbox.js"></script>
+    <script src="/js/analytics.js"></script>
+  </body>
+</html>
