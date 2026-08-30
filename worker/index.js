@@ -1,5 +1,6 @@
 const ALLOWED_ORIGIN = "https://gfse18.github.io";
 const MAX_PAGE_HISTORY = 100;
+const REPORT_TIME_ZONE = "America/New_York";
 const SESSION_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -166,11 +167,264 @@ export default {
       .run();
 
     return new Response(null, { status: 204, headers: corsHeaders });
+  },
+
+  async scheduled(controller, env) {
+    const easternTime = getZonedParts(
+      new Date(controller.scheduledTime),
+      REPORT_TIME_ZONE
+    );
+
+    // Two UTC schedules are needed because Eastern Time changes between UTC-4
+    // and UTC-5. Only the schedule that lands at 11:59 p.m. Eastern sends.
+    if (easternTime.hour !== 23 || easternTime.minute !== 59) {
+      return;
+    }
+
+    await sendDailyReport(env, easternTime.date);
   }
 };
 
 function cleanString(value, maxLength) {
   return typeof value === "string" ? value.slice(0, maxLength) : null;
+}
+
+async function sendDailyReport(env, reportDate) {
+  if (!env.RESEND_API_KEY || !env.REPORT_TO) {
+    throw new Error("RESEND_API_KEY and REPORT_TO must be configured");
+  }
+
+  const nextDate = addDays(reportDate, 1);
+  const start = zonedMidnightToUtc(reportDate, REPORT_TIME_ZONE).toISOString();
+  const end = zonedMidnightToUtc(nextDate, REPORT_TIME_ZONE).toISOString();
+
+  const result = await env.DB.prepare(`
+    SELECT
+      COALESCE(first_seen, timestamp) AS first_seen,
+      COALESCE(last_seen, timestamp) AS last_seen,
+      COALESCE(pageviews, 1) AS pageviews,
+      page AS last_page,
+      pages,
+      city,
+      region,
+      country
+    FROM visits
+    WHERE COALESCE(first_seen, timestamp) >= ?1
+      AND COALESCE(first_seen, timestamp) < ?2
+    ORDER BY COALESCE(first_seen, timestamp)
+  `)
+    .bind(start, end)
+    .all();
+
+  const sessions = result.results || [];
+  const pageCounts = new Map();
+  const locationCounts = new Map();
+  let pageviews = 0;
+
+  for (const session of sessions) {
+    pageviews += Number(session.pageviews) || 1;
+
+    for (const page of parsePageHistory(session)) {
+      incrementCount(pageCounts, page || "Unknown page");
+    }
+
+    const location = [session.city, session.region, session.country]
+      .filter(Boolean)
+      .join(", ");
+    incrementCount(locationCounts, location || "Unknown location");
+  }
+
+  const displayDate = new Intl.DateTimeFormat("en-US", {
+    timeZone: REPORT_TIME_ZONE,
+    year: "numeric",
+    month: "long",
+    day: "numeric"
+  }).format(zonedMidnightToUtc(reportDate, REPORT_TIME_ZONE));
+  const topPages = sortedCounts(pageCounts, 10);
+  const topLocations = sortedCounts(locationCounts, 5);
+  const text = buildReportText(displayDate, sessions.length, pageviews, topPages, topLocations);
+  const html = buildReportHtml(displayDate, sessions.length, pageviews, topPages, topLocations);
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${env.RESEND_API_KEY}`,
+      "Content-Type": "application/json",
+      "Idempotency-Key": `portfolio-daily-report-${reportDate}`
+    },
+    body: JSON.stringify({
+      from: "Portfolio Analytics <onboarding@resend.dev>",
+      to: [env.REPORT_TO],
+      subject: `Portfolio report - ${displayDate}`,
+      text,
+      html
+    })
+  });
+
+  if (!response.ok) {
+    const details = (await response.text()).slice(0, 500);
+    throw new Error(`Resend email failed (${response.status}): ${details}`);
+  }
+}
+
+function getZonedParts(date, timeZone) {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23"
+  });
+  const parts = Object.fromEntries(
+    formatter
+      .formatToParts(date)
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, Number(part.value)])
+  );
+
+  return {
+    date: [
+      parts.year,
+      String(parts.month).padStart(2, "0"),
+      String(parts.day).padStart(2, "0")
+    ].join("-"),
+    hour: parts.hour,
+    minute: parts.minute
+  };
+}
+
+function zonedMidnightToUtc(dateString, timeZone) {
+  const [year, month, day] = dateString.split("-").map(Number);
+  const utcGuess = Date.UTC(year, month - 1, day);
+  let offset = timeZoneOffset(new Date(utcGuess), timeZone);
+  let result = utcGuess - offset;
+
+  // Recalculate using the resulting instant in case the first guess was on
+  // the other side of a daylight-saving transition.
+  offset = timeZoneOffset(new Date(result), timeZone);
+  result = utcGuess - offset;
+  return new Date(result);
+}
+
+function timeZoneOffset(date, timeZone) {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23"
+  });
+  const parts = Object.fromEntries(
+    formatter
+      .formatToParts(date)
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, Number(part.value)])
+  );
+  const displayedAsUtc = Date.UTC(
+    parts.year,
+    parts.month - 1,
+    parts.day,
+    parts.hour,
+    parts.minute,
+    parts.second
+  );
+
+  return displayedAsUtc - Math.floor(date.getTime() / 1000) * 1000;
+}
+
+function addDays(dateString, days) {
+  const [year, month, day] = dateString.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day + days));
+  return date.toISOString().slice(0, 10);
+}
+
+function parsePageHistory(session) {
+  if (session.pages) {
+    try {
+      const parsed = JSON.parse(session.pages);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {}
+  }
+  return session.last_page ? [session.last_page] : [];
+}
+
+function incrementCount(counts, label) {
+  counts.set(label, (counts.get(label) || 0) + 1);
+}
+
+function sortedCounts(counts, limit) {
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, limit);
+}
+
+function buildReportText(date, sessions, pageviews, pages, locations) {
+  const lines = [
+    `Portfolio traffic for ${date}`,
+    "",
+    `Visitor sessions: ${sessions}`,
+    `Page views: ${pageviews}`,
+    "",
+    "Pages:"
+  ];
+
+  lines.push(...formatTextCounts(pages));
+  lines.push("", "Visitor locations:", ...formatTextCounts(locations));
+  return lines.join("\n");
+}
+
+function formatTextCounts(items) {
+  return items.length
+    ? items.map(([label, count]) => `- ${label}: ${count}`)
+    : ["- None"];
+}
+
+function buildReportHtml(date, sessions, pageviews, pages, locations) {
+  return `
+    <div style="font-family:Arial,sans-serif;max-width:620px;color:#222">
+      <h1 style="font-size:24px;margin-bottom:8px">Portfolio traffic</h1>
+      <p style="color:#666;margin-top:0">${escapeHtml(date)}</p>
+      <table style="border-collapse:collapse;margin:24px 0">
+        <tr>
+          <td style="padding:12px 24px 12px 0"><strong>${sessions}</strong><br>Visitor sessions</td>
+          <td style="padding:12px 0"><strong>${pageviews}</strong><br>Page views</td>
+        </tr>
+      </table>
+      <h2 style="font-size:18px">Pages</h2>
+      ${formatHtmlCounts(pages)}
+      <h2 style="font-size:18px;margin-top:24px">Visitor locations</h2>
+      ${formatHtmlCounts(locations)}
+      <p style="font-size:12px;color:#777;margin-top:28px">
+        Sessions use a 30-minute inactivity timeout. Times and report dates use Eastern Time.
+      </p>
+    </div>`;
+}
+
+function formatHtmlCounts(items) {
+  if (items.length === 0) return "<p>None</p>";
+
+  return `<table style="border-collapse:collapse;width:100%">${items
+    .map(
+      ([label, count]) =>
+        `<tr><td style="padding:7px 12px 7px 0;border-bottom:1px solid #eee">${escapeHtml(label)}</td>` +
+        `<td style="padding:7px 0;border-bottom:1px solid #eee;text-align:right">${count}</td></tr>`
+    )
+    .join("")}</table>`;
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
 const adminPage = String.raw`<!DOCTYPE html>

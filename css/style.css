@@ -7416,3 +7416,177 @@ body.lightbox-open {
     grid-template-columns: 1fr;
   }
 }
+
+/* =========================================
+   RESPONSIVE LAYOUT SAFEGUARDS
+   All rules are breakpoint-scoped so the desktop layout is unchanged.
+   ========================================= */
+
+@media screen and (max-width: 991px) {
+    html,
+    body {
+        max-width: 100%;
+        overflow-x: hidden;
+    }
+
+    .page-wrapper,
+    .page_layout,
+    .main-wrapper,
+    .section_main,
+    .padding-global,
+    .container-main {
+        min-width: 0;
+    }
+
+    .sidenav {
+        width: 100%;
+        height: auto;
+        max-height: none;
+        min-width: 0;
+        padding: 0.5rem 1rem;
+        position: sticky;
+        top: 0;
+        overflow: visible;
+    }
+
+    .sidenav_content {
+        flex: none;
+    }
+
+    .sidenav_header_indent {
+        display: none;
+    }
+
+    .sidenav_header,
+    .sidenav-avatar,
+    .sidenav-avatar.w--current {
+        width: auto;
+        height: auto;
+        padding: 0;
+        align-items: center;
+    }
+
+    .portrait {
+        width: 3rem;
+        flex: none;
+    }
+
+    .sidenav_menu {
+        min-width: 0;
+        flex: 1;
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+
+    .sidenav_menu::-webkit-scrollbar {
+        display: none;
+    }
+
+    .sidenav_list {
+        width: max-content;
+        min-width: 100%;
+        padding-bottom: 0;
+        flex-direction: row;
+        align-items: center;
+    }
+
+    .sidenav_link,
+    .sidenav_link.lang-drop {
+        min-height: 2.75rem;
+        padding: 0.6rem 0.75rem;
+        white-space: nowrap;
+    }
+
+    .locales-wrapper {
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+    }
+
+    .projects-page-bg {
+        left: 0;
+    }
+}
+
+@media screen and (max-width: 767px) {
+    .sidenav {
+        gap: 0.35rem;
+        padding: 0.35rem 0.75rem;
+    }
+
+    .portrait {
+        width: 2.75rem;
+    }
+
+    .sidenav_link,
+    .sidenav_link.lang-drop {
+        min-height: 2.75rem;
+        gap: 0.35rem;
+        padding: 0.55rem 0.65rem;
+    }
+
+    .nav-link-icon {
+        width: 1.5rem;
+    }
+
+    .card_main,
+    .card_project-content-wrapper {
+        padding-left: 1.25rem;
+        padding-right: 1.25rem;
+    }
+
+    .card_image-section {
+        height: auto;
+        aspect-ratio: 4 / 3;
+    }
+
+    .project-detail-title,
+    .project-detail-subtitle,
+    .project-detail-section-title,
+    .project-detail-text-column,
+    .project-detail-navigation-title,
+    .project-card-subtitle,
+    footer {
+        overflow-wrap: anywhere;
+    }
+
+    .project-detail-equation-display {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .project-detail-equation-display mjx-container {
+        min-width: max-content;
+    }
+}
+
+@media screen and (max-width: 479px) {
+    .sidenav {
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+
+    .portrait {
+        width: 2.5rem;
+    }
+
+    .sidenav_link,
+    .sidenav_link.lang-drop {
+        padding-left: 0.55rem;
+        padding-right: 0.55rem;
+    }
+
+    .project-detail-panel {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+
+    footer {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+}

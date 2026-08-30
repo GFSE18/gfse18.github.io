@@ -138,6 +138,83 @@ new row.
 Old records will still appear. Because they were created before session
 tracking existed, each old record appears as a one-view session.
 
+## Step 5: Receive a daily email without owning a domain
+
+Cloudflare's built-in email sender requires a custom domain. Because this site
+does not have one, the Worker uses [Resend](https://resend.com/) instead. Resend
+allows its test sender, `onboarding@resend.dev`, to email the address belonging
+to your own Resend account. It cannot email other people without a custom
+domain, which is fine for this private report.
+
+The email is scheduled for approximately **11:59 p.m. Eastern Time every day**.
+It summarizes the visitor sessions that started that day, total page views,
+popular pages, and visitor locations.
+
+### A. Create the Resend account and API key
+
+1. Go to [Resend](https://resend.com/) and create an account using the email
+   address where you want to receive the daily report.
+2. Verify that email address if Resend asks you to do so.
+3. In the Resend dashboard, open **API Keys**.
+4. Select **Create API Key**.
+5. Name it `portfolio-daily-report` and give it sending access.
+6. Create the key and copy it immediately. It begins with `re_` and Resend may
+   show it only once.
+
+Do not paste this API key into `worker/index.js`, `js/analytics.js`, GitHub, or
+any public file.
+
+### B. Save the email settings privately in Cloudflare
+
+1. In Cloudflare, open **Workers & Pages** and select `overseer`.
+2. Open **Settings**, then find **Variables and Secrets**.
+3. Add a secret named exactly `RESEND_API_KEY`.
+4. Paste the `re_...` API key as its value and save it.
+5. Add another secret named exactly `REPORT_TO`.
+6. Use the same email address you used to create the Resend account as its
+   value, then save it.
+
+Both names are uppercase and must be entered exactly as shown.
+
+### C. Deploy the Worker code again
+
+The daily-report code is included in `worker/index.js`. Repeat Step 2 above:
+copy all of `worker/index.js`, replace the existing `overseer` Worker code, and
+select **Deploy**.
+
+No additional D1 SQL is needed for the email report.
+
+### D. Add the daily schedules
+
+Cloudflare schedules use UTC instead of Eastern Time. Add both schedules below
+so the report continues to arrive at 11:59 p.m. when daylight-saving time
+changes. The Worker checks Eastern Time and ignores whichever schedule is not
+11:59 p.m.
+
+1. Open the `overseer` Worker in Cloudflare.
+2. Go to **Settings**, **Triggers**, then **Cron Triggers**.
+3. Add this Cron Trigger:
+
+   ```text
+   59 3 * * *
+   ```
+
+4. Add a second Cron Trigger:
+
+   ```text
+   59 4 * * *
+   ```
+
+5. Save both triggers. Cloudflare says new schedules can take up to 15 minutes
+   to become active.
+
+The first report should arrive close to 11:59 p.m. Eastern Time. It will still
+send when the site had no visitors, showing zero sessions and zero page views.
+
+If Resend reports that the recipient is not allowed, make sure `REPORT_TO` is
+exactly the email address attached to your Resend account. The no-domain sender
+cannot send to a different address.
+
 ## If something goes wrong
 
 ### The website still creates a separate row for every page
@@ -163,6 +240,16 @@ it into the empty box at the bottom of the D1 Console, and select **Execute**.
 
 The D1 binding is missing or has a different name. Follow **Check the database
 connection** above and make sure the binding is named `DB`.
+
+### The scheduled report does not arrive
+
+- Check your spam or junk folder.
+- Confirm both `RESEND_API_KEY` and `REPORT_TO` exist under the Worker's
+  **Variables and Secrets**.
+- Confirm both Cron Triggers from Step 5 are present.
+- Confirm the updated Worker code was deployed after Step 5.
+- In Resend, open **Emails** or **Logs** to see whether the send succeeded or
+  produced an error.
 
 ### You need to undo the Worker change
 
