@@ -458,7 +458,7 @@
                       <div class="project-detail-media-grid is-three">
                         <figure class="project-detail-media">
                           <img
-                            alt="Raw AZ31B extrusion placeholder"
+                            alt="Bolt and nut fixture concept"
                             class="project-detail-media-content"
                             src="images/pura-mech-test/tube-test.png"
                           />
@@ -881,108 +881,172 @@
                         <h2 class="project-detail-section-title">
                           Fixture Design
                         </h2>
+                        <p>
+                          I proposed two similar fixture concepts. The first
+                          clamped onto the inner and outer rings of the Brosius
+                          sample using bolts and nuts, offering the clear
+                          benefit of simple installation. However, tightening
+                          the bolts could introduce a twist into the clamped
+                          regions. The second concept used latch locks, but a
+                          latch with a suitable shape and size for the inner
+                          ring was difficult to source. My partner proposed
+                          using two clamping pieces, but that approach risked
+                          deforming the sample even more than my first concept.
+                          Ultimately, the first concept was selected, with its
+                          twisting problem addressed by using a hand-held
+                          spacer between each nut and the sample during
+                          fastening.
+                        </p>
+                        <p>
+                          The fixture faces contacting the sample were designed
+                          as knurled surfaces. In the initial sample-design
+                          calculations, I expected the radial shear torque to
+                          be transmitted by a simple friction force obtained by
+                          integrating a friction coefficient over the contact
+                          area. However, I could not find a reliable value for
+                          the exact friction coefficient in this situation. Using
+                          the best available estimate, approximately 0.2, the
+                          required clamping force would have squashed the
+                          sample before testing. I later realized that a
+                          knurled surface consists of many small pyramids. When
+                          pressed into the sample without crushing it, the
+                          upper limit of the friction force would be the force
+                          required to tear all of those pyramids away—ideally,
+                          the shear strength of the fixture material multiplied
+                          by the contact area. My mentors confirmed this idea.
+                          From that point forward, friction was no longer a
+                          design variable, which is why it is not discussed in
+                          the previous section.
+                        </p>
                       </div>
                       <div class="project-detail-media-grid is-three">
                         <figure class="project-detail-media">
                           <img
-                            alt="Raw AZ31B extrusion placeholder"
+                            alt="MTS axial-torsion load frame coupling"
                             class="project-detail-media-content"
                             src="images/pura-mech-test/load-frame.jpg"
                           />
                           <figcaption class="project-detail-caption">
-                            The load frame to use in this project.
+                            MTS axial-torsion load frame coupling.
                           </figcaption>
                         </figure>
                         <figure class="project-detail-media">
                           <img
-                            alt="Twin-bridge specimen placeholder"
+                            alt="MTS fixture interface face"
                             class="project-detail-media-content"
                             src="images/pura-mech-test/load-frame-interface-1.jpg"
                           />
                           <figcaption class="project-detail-caption">
-                            One type of load frame interface with fixture.
+                            Existing fixture interface mounted to the load
+                            frame.
                           </figcaption>
                         </figure>
                         <figure class="project-detail-media">
                           <img
-                            alt="Reduced-wall torsion specimen placeholder"
+                            alt="MTS fixture interface adapter"
                             class="project-detail-media-content"
                             src="images/pura-mech-test/load-frame-interface-2.jpg"
                           />
                           <figcaption class="project-detail-caption">
-                            Another type of load frame interface with fixture.
+                            Removable interface adapter for the load frame.
                           </figcaption>
                         </figure>
                       </div>
                       <div class="project-detail-media-grid is-three">
                         <figure class="project-detail-media">
                           <img
-                            alt="Raw AZ31B extrusion placeholder"
+                            alt="Bolt and nut fixture concept"
                             class="project-detail-media-content"
                             src="images/pura-mech-test/fixture-idea-1.jpg"
                           />
                           <figcaption class="project-detail-caption">
-                            My idea of using two screw-nut clamps.
+                            First concept: bolt-and-nut clamps on the inner and
+                            outer rings.
                           </figcaption>
                         </figure>
                         <figure class="project-detail-media">
                           <img
-                            alt="Twin-bridge specimen placeholder"
+                            alt="Latch-lock fixture concept"
                             class="project-detail-media-content"
                             src="images/pura-mech-test/fixture-idea-2.jpg"
                           />
                           <figcaption class="project-detail-caption">
-                            My other idea of using clamps with latches.
+                            Second concept: latch-lock clamps.
                           </figcaption>
                         </figure>
                         <figure class="project-detail-media">
                           <img
-                            alt="Reduced-wall torsion specimen placeholder"
+                            alt="Partner clamping-piece fixture concept"
                             class="project-detail-media-content"
                             src="images/pura-mech-test/fixture-idea-3.jpg"
                           />
                           <figcaption class="project-detail-caption">
-                            Partner's idea of using two clamping pieces pushed
+                            Partner’s concept: two clamping pieces pushed
                             together.
                           </figcaption>
                         </figure>
                       </div>
+                      <div class="project-detail-text-column">
+                        <p>
+                          The first fixture design used the DIC manufacturer’s
+                          mirror mount, which produced an unnecessarily large
+                          body that was difficult to machine. In the next
+                          design, I began developing my own mirror mount. Since
+                          I was unsure which half of the fixture should carry
+                          the mirrors, I modeled mounts for both halves so I
+                          could discuss the options with my mentors. The
+                          mirror’s side might not be as smooth as its top, so
+                          the gauge-region image needed to be reflected without
+                          the mirror side in its optical path. The same
+                          constraint applied to the polycarbonate shield above
+                          the mirrors. I was also unsure whether silver or
+                          aluminum mirrors would be best, so I selected silver
+                          mirrors for their higher reflectivity. The thinnest
+                          available variant from the Georgia Tech-registered
+                          vendor was circular and 1/4 in thick, making the cut
+                          into the fixture so deep that the fixture could no
+                          longer support the applied torque.
+                        </p>
+                      </div>
                       <div class="project-detail-media-grid is-three">
                         <figure class="project-detail-media">
                           <img
-                            alt="Raw AZ31B extrusion placeholder"
+                            alt="First fixture CAD design"
                             class="project-detail-media-content"
                             src="images/pura-mech-test/fixture-design-1.png"
                           />
                           <figcaption class="project-detail-caption">
-                            First fixture design iteration.
+                            First fixture design iteration with custom mirror
+                            mounts.
                           </figcaption>
                         </figure>
                         <figure class="project-detail-media">
                           <img
-                            alt="Twin-bridge specimen placeholder"
+                            alt="Second fixture CAD design with mirrors"
                             class="project-detail-media-content"
                             src="images/pura-mech-test/fixture-design-2.png"
                           />
                           <figcaption class="project-detail-caption">
-                            Second fixture design iteration.
+                            Second fixture design iteration with mirror mounts
+                            on both fixture halves.
                           </figcaption>
                         </figure>
                         <figure class="project-detail-media">
                           <img
-                            alt="Reduced-wall torsion specimen placeholder"
+                            alt="Third fixture CAD design with rectangular mirrors"
                             class="project-detail-media-content"
                             src="images/pura-mech-test/fixture-design-3.png"
                           />
                           <figcaption class="project-detail-caption">
-                            Third fixture design iteration.
+                            Third fixture design iteration using thinner
+                            rectangular mirrors.
                           </figcaption>
                         </figure>
                       </div>
                       <div class="project-detail-media-grid is-three">
                         <figure class="project-detail-media">
                           <img
-                            alt="Raw AZ31B extrusion placeholder"
+                            alt="Section view of first fixture design"
                             class="project-detail-media-content"
                             src="images/pura-mech-test/fixture-section-1.png"
                           />
@@ -992,7 +1056,7 @@
                         </figure>
                         <figure class="project-detail-media">
                           <img
-                            alt="Twin-bridge specimen placeholder"
+                            alt="Section view of second fixture design"
                             class="project-detail-media-content"
                             src="images/pura-mech-test/fixture-section-2.png"
                           />
@@ -1002,7 +1066,7 @@
                         </figure>
                         <figure class="project-detail-media">
                           <img
-                            alt="Reduced-wall torsion specimen placeholder"
+                            alt="Section view of third fixture design"
                             class="project-detail-media-content"
                             src="images/pura-mech-test/fixture-section-3.png"
                           />
@@ -1014,36 +1078,55 @@
                       <div class="project-detail-media-grid is-three">
                         <figure class="project-detail-media">
                           <img
-                            alt="Raw AZ31B extrusion placeholder"
+                            alt="Meshed corner relief FEA mesh"
                             class="project-detail-media-content"
                             src="images/pura-mech-test/corner-relief-mesh.png"
                           />
                           <figcaption class="project-detail-caption">
-                            Meshed corner relief feature.
+                            FEA mesh used to evaluate the relieved mirror
+                            opening.
                           </figcaption>
                         </figure>
                         <figure class="project-detail-media">
                           <img
-                            alt="Twin-bridge specimen placeholder"
+                            alt="Fixture FEA stress result"
                             class="project-detail-media-content"
                             src="images/pura-mech-test/fixture-fea.png"
                           />
                           <figcaption class="project-detail-caption">
-                            FEA study found high stress concentration at mirror
-                            slot.
+                            FEA result showing high stress concentration at the
+                            mirror slot.
                           </figcaption>
                         </figure>
                         <figure class="project-detail-media">
                           <img
-                            alt="Reduced-wall torsion specimen placeholder"
+                            alt="Split fixture concept sketch"
                             class="project-detail-media-content"
                             src="images/pura-mech-test/kill-concentrator.jpg"
                           />
                           <figcaption class="project-detail-caption">
-                            The idea of splitting the fixture at the stress
+                            Concept for splitting the fixture at the stress
                             concentrator.
                           </figcaption>
                         </figure>
+                      </div>
+                      <div class="project-detail-text-column">
+                        <p>
+                          For the third design, my mentors confirmed that
+                          aluminum mirrors would provide sufficient reflectivity
+                          for this application, allowing me to use a thinner
+                          rectangular mirror. To facilitate FEA, reduce stress
+                          concentration, and provide more room for the mirror to
+                          bite into the fixture, I added corner-relief features
+                          to the mirror cuts. After running FEA and examining
+                          result convergence over a range of mesh sizes, I
+                          found that the stresses at the cuts were still high.
+                          This led to a new idea: split the fixture at the
+                          stress concentrator to “destroy” it, then mate the two
+                          pieces with a key-slot mechanism that could transmit
+                          torque without requiring excessive stress-relief
+                          geometry.
+                        </p>
                       </div>
                     </section>
 
