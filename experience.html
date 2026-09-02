@@ -11,7 +11,7 @@
       type="image/x-icon"
     />
   </head>
-  <body>
+  <body class="experience-page">
     <div class="page-wrapper">
       <div class="global-styles w-embed"></div>
       <div class="page_layout">
@@ -124,6 +124,18 @@
             <div class="padding-global">
               <div class="padding-section-medium">
                 <div class="container-main">
+                  <div class="main_header project-page-header">
+                    <div class="max-width-medium">
+                      <h1 text-animate="" class="heading_main">
+                        Work &amp; Student Org Exp.
+                      </h1>
+                      <p class="project-page-intro">
+                        Roles spanning robotics leadership, automotive
+                        manufacturing, engineering research, and student
+                        organizations, with a twist of social engineering.
+                      </p>
+                    </div>
+                  </div>
                   <div class="collection-list-wrapper w-dyn-list">
                     <div class="main_grid is-projects w-dyn-items" role="list">
                       <div class="collection-item w-dyn-item" role="listitem">
@@ -605,6 +617,19 @@
         </main>
       </div>
     </div>
+    <script>
+      document.querySelectorAll(".card_project").forEach((card) => {
+        const titleLink = card.querySelector(".card_project-title[href]");
+        const destination = titleLink?.getAttribute("href")?.trim();
+
+        if (destination) {
+          card.classList.add("is-clickable");
+        } else {
+          titleLink?.removeAttribute("href");
+          card.classList.add("is-coming-soon");
+        }
+      });
+    </script>
     <script src="/js/analytics.js"></script>
   </body>
 </html>

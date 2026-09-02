@@ -3440,10 +3440,28 @@ figcaption {
 .main_grid.is-projects {
     grid-column-gap: 1.25rem;
     grid-row-gap: 2rem;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     grid-template-rows: auto;
     grid-auto-columns: 1fr;
     margin-top: 2.5rem;
     position: relative
+}
+
+.main_grid.is-projects .collection-item {
+    min-width: 0
+}
+
+.project-page-header {
+    max-width: 52rem
+}
+
+.project-page-intro {
+    color: #a8a8a8;
+    max-width: 46rem;
+    margin-top: 1rem;
+    margin-bottom: 0;
+    font-size: 1rem;
+    line-height: 1.55
 }
 
 .main_grid.is-resources {
@@ -3714,7 +3732,24 @@ footer{
     align-items: flex-start;
     text-decoration: none;
     display: flex;
-    overflow: hidden
+    overflow: hidden;
+    position: relative;
+    transition: border-color .25s ease, box-shadow .25s ease, transform .25s ease
+}
+
+.card_project.is-clickable {
+    cursor: pointer
+}
+
+.card_project.is-clickable:hover {
+    border-color: rgba(255, 255, 255, .24);
+    box-shadow: 0 .75rem 2rem rgba(0, 0, 0, .22);
+    transform: translateY(-.2rem)
+}
+
+.card_project.is-clickable:focus-within {
+    outline: .125rem solid #fff;
+    outline-offset: .25rem
 }
 
 .card_project-content-wrapper {
@@ -3753,6 +3788,49 @@ footer{
     opacity: 1;
 }
 
+.card_project.is-clickable .card_project-title[href]::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 2
+}
+
+.projects-page .card_project-content::after,
+.experience-page .card_project-content::after {
+    content: "Project Details Coming Soon";
+    color: #a8a8a8;
+    border: .0625rem solid rgba(255, 255, 255, .12);
+    border-radius: .375rem;
+    margin-top: .75rem;
+    padding: .55rem .8rem;
+    font-size: .8rem;
+    font-weight: 600;
+    line-height: 1;
+    display: inline-flex
+}
+
+.projects-page .card_project.is-clickable .card_project-content::after,
+.experience-page .card_project.is-clickable .card_project-content::after {
+    content: "View Project Details \2192";
+    color: #fff;
+    border-color: rgba(255, 255, 255, .3);
+    transition: background-color .25s ease, border-color .25s ease
+}
+
+.projects-page .card_project.is-clickable:hover .card_project-content::after,
+.experience-page .card_project.is-clickable:hover .card_project-content::after {
+    background-color: rgba(255, 255, 255, .1);
+    border-color: rgba(255, 255, 255, .5)
+}
+
+.experience-page .card_project-content::after {
+    content: "Experience Details Coming Soon"
+}
+
+.experience-page .card_project.is-clickable .card_project-content::after {
+    content: "View Experience Details \2192"
+}
+
 .image-wrap {
     width: 100%;
     position: relative
@@ -3783,8 +3861,8 @@ footer{
     height: 100%;
     grid-column-gap: .5rem;
     grid-row-gap: .5rem;
-    flex-flow: column wrap;
-    justify-content: space-between;
+    flex-flow: column nowrap;
+    justify-content: flex-start;
     align-items: flex-start;
     display: flex
 }
@@ -6981,6 +7059,20 @@ footer{
 
     .project-detail-media {
         margin-top: 1.5rem;
+    }
+}
+
+/* Project and experience card-grid density */
+@media screen and (max-width: 991px) {
+    .main_grid.is-projects {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        display: grid
+    }
+}
+
+@media screen and (max-width: 767px) {
+    .main_grid.is-projects {
+        grid-template-columns: 1fr
     }
 }
 
