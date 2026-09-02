@@ -2,6 +2,7 @@
   const WORKER_URL = "https://overseer.matthewzhou05.workers.dev";
   const SESSION_KEY = "portfolio_analytics_session";
   const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
+  const ENGAGEMENT_FLUSH_MS = 15 * 1000;
 
   function createSessionId() {
     if (typeof crypto.randomUUID === "function") {
@@ -51,16 +52,136 @@
     }
   }
 
-  fetch(WORKER_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
+  function getDeviceType() {
+    const userAgent = navigator.userAgent;
+    const isIPad =
+      /iPad/i.test(userAgent) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    const isTablet =
+      isIPad ||
+      /Tablet|PlayBook|Silk/i.test(userAgent) ||
+      (/Android/i.test(userAgent) && !/Mobile/i.test(userAgent));
+
+    if (isTablet) return "tablet";
+    if (/Mobi|Android|iPhone|iPod/i.test(userAgent)) return "mobile";
+    return "desktop";
+  }
+
+  function sendEvent(payload) {
+    return fetch(WORKER_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload),
+      keepalive: true
+    }).catch(() => {});
+  }
+
+  function currentScrollDepth() {
+    const root = document.documentElement;
+    const pageHeight = Math.max(root.scrollHeight, document.body?.scrollHeight || 0);
+    if (pageHeight <= window.innerHeight) return 100;
+
+    return Math.min(
+      100,
+      Math.max(0, Math.round(((window.scrollY + window.innerHeight) / pageHeight) * 100))
+    );
+  }
+
+  function classifyTrackedLink(link) {
+    const href = link.getAttribute("href") || "";
+    const text = (link.textContent || "").trim().toLowerCase();
+
+    if (/\.pdf(?:$|[?#])/i.test(href) && /resume/i.test(href + " " + text)) {
+      return "resume_open";
+    }
+    if (/^mailto:/i.test(href)) return "email_click";
+    if (/github\.com/i.test(href)) return "github_click";
+    return null;
+  }
+
+  const sessionId = getSessionId();
+  const page = window.location.pathname;
+  let activeStartedAt = null;
+  let unsentActiveSeconds = 0;
+  let maxScrollDepth = currentScrollDepth();
+  let lastSentScrollDepth = -1;
+
+  sendEvent({
+    eventType: "pageview",
+    sessionId,
+    page,
+    referrer: document.referrer,
+    deviceType: getDeviceType()
+  });
+
+  function isActivelyViewing() {
+    return document.visibilityState === "visible" && document.hasFocus();
+  }
+
+  function startActiveTimer() {
+    if (activeStartedAt === null && isActivelyViewing()) {
+      activeStartedAt = performance.now();
+    }
+  }
+
+  function stopActiveTimer() {
+    if (activeStartedAt !== null) {
+      unsentActiveSeconds += (performance.now() - activeStartedAt) / 1000;
+      activeStartedAt = null;
+    }
+  }
+
+  function flushEngagement() {
+    stopActiveTimer();
+    const activeSeconds = Math.round(unsentActiveSeconds * 10) / 10;
+    const scrollDepth = maxScrollDepth;
+    const hasUpdate = activeSeconds > 0 || scrollDepth > lastSentScrollDepth;
+
+    if (hasUpdate) {
+      unsentActiveSeconds = 0;
+      lastSentScrollDepth = scrollDepth;
+      sendEvent({
+        eventType: "engagement",
+        sessionId,
+        page,
+        activeSeconds,
+        scrollDepth
+      });
+    }
+
+    startActiveTimer();
+  }
+
+  document.addEventListener(
+    "click",
+    (event) => {
+      const link = event.target.closest?.("a[href]");
+      if (!link) return;
+
+      const action = classifyTrackedLink(link);
+      if (!action) return;
+
+      sendEvent({
+        eventType: "action",
+        sessionId,
+        page,
+        action,
+        target: link.getAttribute("href") || ""
+      });
     },
-    body: JSON.stringify({
-      sessionId: getSessionId(),
-      page: window.location.pathname,
-      referrer: document.referrer
-    }),
-    keepalive: true
-  }).catch(() => {});
+    true
+  );
+
+  window.addEventListener("scroll", () => {
+    maxScrollDepth = Math.max(maxScrollDepth, currentScrollDepth());
+  }, { passive: true });
+  window.addEventListener("focus", startActiveTimer);
+  window.addEventListener("blur", flushEngagement);
+  document.addEventListener("visibilitychange", flushEngagement);
+  window.addEventListener("pagehide", flushEngagement);
+
+  startActiveTimer();
+  setInterval(flushEngagement, ENGAGEMENT_FLUSH_MS);
 })();

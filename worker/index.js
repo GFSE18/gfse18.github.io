@@ -1,6 +1,12 @@
 const ALLOWED_ORIGIN = "https://gfse18.github.io";
 const MAX_PAGE_HISTORY = 100;
 const REPORT_TIME_ZONE = "America/New_York";
+const DEVICE_TYPES = new Set(["desktop", "mobile", "tablet"]);
+const TRACKED_ACTIONS = new Set([
+  "resume_open",
+  "email_click",
+  "github_click"
+]);
 const SESSION_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -49,7 +55,32 @@ export default {
           page AS last_page,
           pages,
           referrer,
-          user_agent
+          user_agent,
+          device_type,
+          COALESCE((
+            SELECT SUM(metrics.active_seconds)
+            FROM session_page_metrics AS metrics
+            WHERE metrics.session_id = visits.session_id
+          ), 0) AS active_seconds,
+          COALESCE((
+            SELECT json_group_array(json_object(
+              'page', metrics.page,
+              'activeSeconds', ROUND(metrics.active_seconds, 1),
+              'scrollDepth', metrics.max_scroll_depth
+            ))
+            FROM session_page_metrics AS metrics
+            WHERE metrics.session_id = visits.session_id
+          ), '[]') AS page_metrics,
+          COALESCE((
+            SELECT json_group_array(json_object(
+              'action', actions.action,
+              'page', actions.page,
+              'target', actions.target,
+              'count', actions.click_count
+            ))
+            FROM session_actions AS actions
+            WHERE actions.session_id = visits.session_id
+          ), '[]') AS actions
         FROM visits
         ORDER BY COALESCE(last_seen, timestamp) DESC
         LIMIT 100
@@ -93,6 +124,75 @@ export default {
     const page = cleanString(body.page, 500);
     const referrer = cleanString(body.referrer, 1000);
     const now = new Date().toISOString();
+    const eventType =
+      typeof body.eventType === "string" ? body.eventType : "pageview";
+
+    if (eventType === "engagement") {
+      const activeSeconds = clampNumber(body.activeSeconds, 0, 300);
+      const scrollDepth = Math.round(clampNumber(body.scrollDepth, 0, 100));
+
+      await env.DB.prepare(`
+        INSERT INTO session_page_metrics (
+          session_id,
+          page,
+          active_seconds,
+          max_scroll_depth,
+          first_seen,
+          last_seen
+        )
+        VALUES (?1, ?2, ?3, ?4, ?5, ?5)
+        ON CONFLICT(session_id, page) DO UPDATE SET
+          active_seconds = session_page_metrics.active_seconds + excluded.active_seconds,
+          max_scroll_depth = MAX(
+            session_page_metrics.max_scroll_depth,
+            excluded.max_scroll_depth
+          ),
+          last_seen = excluded.last_seen
+      `)
+        .bind(sessionId, page || "", activeSeconds, scrollDepth, now)
+        .run();
+
+      return new Response(null, { status: 204, headers: corsHeaders });
+    }
+
+    if (eventType === "action") {
+      const action =
+        typeof body.action === "string" ? body.action : "";
+      if (!TRACKED_ACTIONS.has(action)) {
+        return new Response("Unknown action", {
+          status: 400,
+          headers: corsHeaders
+        });
+      }
+
+      const target = cleanString(body.target, 1000) || "";
+      await env.DB.prepare(`
+        INSERT INTO session_actions (
+          session_id,
+          action,
+          page,
+          target,
+          first_clicked,
+          last_clicked,
+          click_count
+        )
+        VALUES (?1, ?2, ?3, ?4, ?5, ?5, 1)
+        ON CONFLICT(session_id, action, page, target) DO UPDATE SET
+          last_clicked = excluded.last_clicked,
+          click_count = session_actions.click_count + 1
+      `)
+        .bind(sessionId, action, page || "", target, now)
+        .run();
+
+      return new Response(null, { status: 204, headers: corsHeaders });
+    }
+
+    if (eventType !== "pageview") {
+      return new Response("Unknown event type", {
+        status: 400,
+        headers: corsHeaders
+      });
+    }
 
     const ip = request.headers.get("CF-Connecting-IP");
     const country = request.cf?.country || null;
@@ -104,6 +204,10 @@ export default {
     const longitude = request.cf?.longitude || null;
     const timezone = request.cf?.timezone || null;
     const userAgent = request.headers.get("User-Agent");
+    const suppliedDeviceType = cleanString(body.deviceType, 20);
+    const deviceType = DEVICE_TYPES.has(suppliedDeviceType)
+      ? suppliedDeviceType
+      : inferDeviceType(userAgent);
 
     await env.DB.prepare(`
       INSERT INTO visits (
@@ -124,18 +228,20 @@ export default {
         first_seen,
         last_seen,
         pageviews,
-        pages
+        pages,
+        device_type
       )
       VALUES (
         ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9,
-        ?10, ?11, ?12, ?13, ?14, ?15, ?16, 1, ?17
+        ?10, ?11, ?12, ?13, ?14, ?15, ?16, 1, ?17, ?18
       )
       ON CONFLICT(session_id) DO UPDATE SET
         last_seen = excluded.last_seen,
         pageviews = visits.pageviews + 1,
         page = excluded.page,
+        device_type = COALESCE(visits.device_type, excluded.device_type),
         pages = CASE
-          WHEN COALESCE(json_array_length(visits.pages), 0) < ?18
+          WHEN COALESCE(json_array_length(visits.pages), 0) < ?19
           THEN json_insert(
             COALESCE(visits.pages, '[]'),
             '$[#]',
@@ -162,6 +268,7 @@ export default {
         now,
         now,
         JSON.stringify([page]),
+        deviceType,
         MAX_PAGE_HISTORY
       )
       .run();
@@ -189,6 +296,20 @@ function cleanString(value, maxLength) {
   return typeof value === "string" ? value.slice(0, maxLength) : null;
 }
 
+function clampNumber(value, minimum, maximum) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return minimum;
+  return Math.min(maximum, Math.max(minimum, number));
+}
+
+function inferDeviceType(userAgent) {
+  const value = userAgent || "";
+  if (/iPad|Tablet|PlayBook|Silk/i.test(value)) return "tablet";
+  if (/Android/i.test(value) && !/Mobile/i.test(value)) return "tablet";
+  if (/Mobi|Android|iPhone|iPod/i.test(value)) return "mobile";
+  return "desktop";
+}
+
 async function sendDailyReport(env, reportDate) {
   if (!env.RESEND_API_KEY || !env.REPORT_TO) {
     throw new Error("RESEND_API_KEY and REPORT_TO must be configured");
@@ -207,7 +328,31 @@ async function sendDailyReport(env, reportDate) {
       pages,
       city,
       region,
-      country
+      country,
+      device_type,
+      COALESCE((
+        SELECT SUM(metrics.active_seconds)
+        FROM session_page_metrics AS metrics
+        WHERE metrics.session_id = visits.session_id
+      ), 0) AS active_seconds,
+      COALESCE((
+        SELECT COUNT(*)
+        FROM session_page_metrics AS metrics
+        WHERE metrics.session_id = visits.session_id
+      ), 0) AS measured_pages,
+      COALESCE((
+        SELECT SUM(metrics.max_scroll_depth)
+        FROM session_page_metrics AS metrics
+        WHERE metrics.session_id = visits.session_id
+      ), 0) AS total_scroll_depth,
+      COALESCE((
+        SELECT json_group_array(json_object(
+          'action', actions.action,
+          'count', actions.click_count
+        ))
+        FROM session_actions AS actions
+        WHERE actions.session_id = visits.session_id
+      ), '[]') AS actions
     FROM visits
     WHERE COALESCE(first_seen, timestamp) >= ?1
       AND COALESCE(first_seen, timestamp) < ?2
@@ -219,13 +364,30 @@ async function sendDailyReport(env, reportDate) {
   const sessions = result.results || [];
   const pageCounts = new Map();
   const locationCounts = new Map();
+  const deviceCounts = new Map();
+  const actionCounts = new Map();
   let pageviews = 0;
+  let activeSeconds = 0;
+  let measuredPages = 0;
+  let totalScrollDepth = 0;
 
   for (const session of sessions) {
     pageviews += Number(session.pageviews) || 1;
+    activeSeconds += Number(session.active_seconds) || 0;
+    measuredPages += Number(session.measured_pages) || 0;
+    totalScrollDepth += Number(session.total_scroll_depth) || 0;
 
     for (const page of parsePageHistory(session)) {
       incrementCount(pageCounts, page || "Unknown page");
+    }
+
+    incrementCount(deviceCounts, session.device_type || "Unknown device");
+    for (const action of parseJsonArray(session.actions)) {
+      incrementCount(
+        actionCounts,
+        actionLabel(action.action),
+        Number(action.count) || 1
+      );
     }
 
     const location = [session.city, session.region, session.country]
@@ -242,8 +404,19 @@ async function sendDailyReport(env, reportDate) {
   }).format(zonedMidnightToUtc(reportDate, REPORT_TIME_ZONE));
   const topPages = sortedCounts(pageCounts, 10);
   const topLocations = sortedCounts(locationCounts, 5);
-  const text = buildReportText(displayDate, sessions.length, pageviews, topPages, topLocations);
-  const html = buildReportHtml(displayDate, sessions.length, pageviews, topPages, topLocations);
+  const report = {
+    date: displayDate,
+    sessions: sessions.length,
+    pageviews,
+    averageActiveSeconds: sessions.length ? activeSeconds / sessions.length : 0,
+    averageScrollDepth: measuredPages ? totalScrollDepth / measuredPages : 0,
+    pages: topPages,
+    actions: sortedCounts(actionCounts, 10),
+    devices: sortedCounts(deviceCounts, 5),
+    locations: topLocations
+  };
+  const text = buildReportText(report);
+  const html = buildReportHtml(report);
 
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -354,8 +527,26 @@ function parsePageHistory(session) {
   return session.last_page ? [session.last_page] : [];
 }
 
-function incrementCount(counts, label) {
-  counts.set(label, (counts.get(label) || 0) + 1);
+function parseJsonArray(value) {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function actionLabel(action) {
+  return {
+    resume_open: "Resume opened",
+    email_click: "Email clicked",
+    github_click: "GitHub clicked"
+  }[action] || action || "Unknown action";
+}
+
+function incrementCount(counts, label, amount = 1) {
+  counts.set(label, (counts.get(label) || 0) + amount);
 }
 
 function sortedCounts(counts, limit) {
@@ -364,18 +555,22 @@ function sortedCounts(counts, limit) {
     .slice(0, limit);
 }
 
-function buildReportText(date, sessions, pageviews, pages, locations) {
+function buildReportText(report) {
   const lines = [
-    `Portfolio traffic for ${date}`,
+    `Portfolio traffic for ${report.date}`,
     "",
-    `Visitor sessions: ${sessions}`,
-    `Page views: ${pageviews}`,
+    `Visitor sessions: ${report.sessions}`,
+    `Page views: ${report.pageviews}`,
+    `Average active reading time: ${formatDuration(report.averageActiveSeconds)}`,
+    `Average maximum scroll depth: ${Math.round(report.averageScrollDepth)}%`,
     "",
     "Pages:"
   ];
 
-  lines.push(...formatTextCounts(pages));
-  lines.push("", "Visitor locations:", ...formatTextCounts(locations));
+  lines.push(...formatTextCounts(report.pages));
+  lines.push("", "Tracked clicks:", ...formatTextCounts(report.actions));
+  lines.push("", "Devices:", ...formatTextCounts(report.devices));
+  lines.push("", "Visitor locations:", ...formatTextCounts(report.locations));
   return lines.join("\n");
 }
 
@@ -385,25 +580,38 @@ function formatTextCounts(items) {
     : ["- None"];
 }
 
-function buildReportHtml(date, sessions, pageviews, pages, locations) {
+function buildReportHtml(report) {
   return `
     <div style="font-family:Arial,sans-serif;max-width:620px;color:#222">
       <h1 style="font-size:24px;margin-bottom:8px">Portfolio traffic</h1>
-      <p style="color:#666;margin-top:0">${escapeHtml(date)}</p>
+      <p style="color:#666;margin-top:0">${escapeHtml(report.date)}</p>
       <table style="border-collapse:collapse;margin:24px 0">
         <tr>
-          <td style="padding:12px 24px 12px 0"><strong>${sessions}</strong><br>Visitor sessions</td>
-          <td style="padding:12px 0"><strong>${pageviews}</strong><br>Page views</td>
+          <td style="padding:12px 24px 12px 0"><strong>${report.sessions}</strong><br>Visitor sessions</td>
+          <td style="padding:12px 24px 12px 0"><strong>${report.pageviews}</strong><br>Page views</td>
+          <td style="padding:12px 24px 12px 0"><strong>${formatDuration(report.averageActiveSeconds)}</strong><br>Avg. active time</td>
+          <td style="padding:12px 0"><strong>${Math.round(report.averageScrollDepth)}%</strong><br>Avg. max scroll</td>
         </tr>
       </table>
       <h2 style="font-size:18px">Pages</h2>
-      ${formatHtmlCounts(pages)}
+      ${formatHtmlCounts(report.pages)}
+      <h2 style="font-size:18px;margin-top:24px">Tracked clicks</h2>
+      ${formatHtmlCounts(report.actions)}
+      <h2 style="font-size:18px;margin-top:24px">Devices</h2>
+      ${formatHtmlCounts(report.devices)}
       <h2 style="font-size:18px;margin-top:24px">Visitor locations</h2>
-      ${formatHtmlCounts(locations)}
+      ${formatHtmlCounts(report.locations)}
       <p style="font-size:12px;color:#777;margin-top:28px">
         Sessions use a 30-minute inactivity timeout. Times and report dates use Eastern Time.
       </p>
     </div>`;
+}
+
+function formatDuration(seconds) {
+  const totalSeconds = Math.max(0, Math.round(Number(seconds) || 0));
+  const minutes = Math.floor(totalSeconds / 60);
+  const remainder = totalSeconds % 60;
+  return minutes ? `${minutes}m ${remainder}s` : `${remainder}s`;
 }
 
 function formatHtmlCounts(items) {
@@ -446,6 +654,7 @@ const adminPage = String.raw`<!DOCTYPE html>
     .mono { font-family: monospace; font-size: 13px; }
     .pages { min-width: 220px; }
     .pages div + div { margin-top: 4px; }
+    .secondary { color: #666; font-family: Arial, sans-serif; font-size: 12px; }
     .refresh { margin-bottom: 16px; padding: 8px 14px; cursor: pointer; }
   </style>
 </head>
@@ -461,15 +670,18 @@ const adminPage = String.raw`<!DOCTYPE html>
             <th>First seen</th>
             <th>Last seen</th>
             <th>Views</th>
+            <th>Active time</th>
+            <th>Device</th>
             <th>City</th>
             <th>State</th>
             <th>Country</th>
             <th>IP</th>
-            <th>Pages</th>
+            <th>Pages &amp; scroll</th>
+            <th>Tracked clicks</th>
             <th>Entry referrer</th>
           </tr>
         </thead>
-        <tbody id="visits"><tr><td colspan="9">Loading...</td></tr></tbody>
+        <tbody id="visits"><tr><td colspan="12">Loading...</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -518,10 +730,35 @@ const adminPage = String.raw`<!DOCTYPE html>
       return counts;
     }
 
+    function jsonArray(value) {
+      if (!value) return [];
+      try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+
+    function formatDuration(value) {
+      const seconds = Math.max(0, Math.round(Number(value) || 0));
+      const minutes = Math.floor(seconds / 60);
+      const remainder = seconds % 60;
+      return minutes ? minutes + "m " + remainder + "s" : remainder + "s";
+    }
+
+    function actionName(value) {
+      return {
+        resume_open: "Resume opened",
+        email_click: "Email clicked",
+        github_click: "GitHub clicked"
+      }[value] || value || "Unknown action";
+    }
+
     async function loadVisits() {
       tbody.replaceChildren();
       const loading = document.createElement("tr");
-      cell(loading, "Loading...").colSpan = 9;
+      cell(loading, "Loading...").colSpan = 12;
       tbody.appendChild(loading);
 
       try {
@@ -535,16 +772,49 @@ const adminPage = String.raw`<!DOCTYPE html>
           cell(row, formatTime(visit.first_seen));
           cell(row, formatTime(visit.last_seen));
           cell(row, visit.pageviews);
+          cell(row, formatDuration(visit.active_seconds));
+          cell(row, visit.device_type ? visit.device_type[0].toUpperCase() + visit.device_type.slice(1) : "Unknown");
           cell(row, visit.city);
           cell(row, visit.region);
           cell(row, visit.country);
           cell(row, visit.ip, "mono");
 
           const pagesCell = cell(row, "", "pages mono");
+          const metrics = new Map(
+            jsonArray(visit.page_metrics).map((metric) => [metric.page, metric])
+          );
           for (const [page, count] of summarizePages(visit)) {
             const item = document.createElement("div");
             item.textContent = count > 1 ? page + " ×" + count : page;
             pagesCell.appendChild(item);
+
+            const metric = metrics.get(page);
+            if (metric) {
+              const details = document.createElement("div");
+              details.className = "secondary";
+              details.textContent =
+                formatDuration(metric.activeSeconds) +
+                " active · " +
+                metric.scrollDepth +
+                "% scroll";
+              pagesCell.appendChild(details);
+            }
+          }
+
+          const actionsCell = cell(row, "");
+          const actionCounts = new Map();
+          for (const action of jsonArray(visit.actions)) {
+            const label = actionName(action.action);
+            actionCounts.set(label, (actionCounts.get(label) ?? 0) + (Number(action.count) || 1));
+          }
+          if (actionCounts.size === 0) {
+            actionsCell.textContent = "—";
+          } else {
+            for (const [label, count] of actionCounts) {
+              const item = document.createElement("div");
+              item.textContent = count > 1 ? label + " ×" + count : label;
+              actionsCell.appendChild(item);
+            }
           }
 
           cell(row, visit.referrer);
@@ -553,13 +823,13 @@ const adminPage = String.raw`<!DOCTYPE html>
 
         if (visits.length === 0) {
           const empty = document.createElement("tr");
-          cell(empty, "No visits yet.").colSpan = 9;
+          cell(empty, "No visits yet.").colSpan = 12;
           tbody.appendChild(empty);
         }
       } catch (error) {
         tbody.replaceChildren();
         const failed = document.createElement("tr");
-        cell(failed, error.message).colSpan = 9;
+        cell(failed, error.message).colSpan = 12;
         tbody.appendChild(failed);
       }
     }

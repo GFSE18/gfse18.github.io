@@ -1,4 +1,4 @@
-# How to add session-based traffic tracking
+# How to install the portfolio traffic tracking
 
 This guide assumes your current setup is:
 
@@ -25,15 +25,39 @@ view. That row shows:
 - the number of page views; and
 - which pages were viewed.
 
+The updated tracker also records:
+
+- active reading time while the page is visible and the browser is focused;
+- the deepest percentage scrolled on each page;
+- desktop, mobile, or tablet device type; and
+- résumé, email, and GitHub link clicks.
+
 This is an anonymous browser session, not proof of a person's identity. A
 different browser, private window, device, or cleared browser storage creates a
 different session.
 
-## The three files and where they go
+## How the data is stored
+
+The data stays grouped around the same session ID:
+
+- `visits` keeps one main row per session, including its page history and device
+  type.
+- `session_page_metrics` keeps one summary row for each page viewed during that
+  session. New reading-time updates are added to its active-seconds total, and
+  only the deepest scroll percentage is kept.
+- `session_actions` keeps one summary row for each kind of tracked click during
+  the session. Repeated clicks increase a counter instead of creating a new row
+  every time.
+
+The admin page combines these tables back into one displayed row per visitor
+session. It does not show engagement updates as separate visits.
+
+## The files and where they go
 
 | Local file | Where its contents go |
 | --- | --- |
-| `worker/migration-session-grouping.sql` | Run once in your Cloudflare D1 database console |
+| `worker/migration-session-grouping.sql` | Original session migration; do not run it again if session grouping already works |
+| `worker/migration-engagement-metrics.sql` | Run once in D1 to add reading, scrolling, device, and click storage |
 | `worker/index.js` | Replace the current code in your Cloudflare Worker |
 | `js/analytics.js` | Keep this file in your GitHub Pages website repository |
 
@@ -41,23 +65,27 @@ Complete the following steps in order.
 
 ## Step 1: Update the D1 database
 
-This adds the new session columns. It does not delete your existing traffic
-records.
+This adds the new engagement tables and device column. It does not delete or
+change your existing traffic records.
 
 1. Sign in to the [Cloudflare dashboard](https://dash.cloudflare.com/).
 2. Open **Storage & Databases**, then **D1 SQL Database**.
 3. Select the database used by your `overseer` Worker.
 4. Open the **Console** tab.
-5. On your computer, open `worker/migration-session-grouping.sql`.
+5. On your computer, open `worker/migration-engagement-metrics.sql`.
 6. Copy everything in that file.
 7. Paste it into the D1 Console.
 8. Select **Execute**.
 9. Wait for Cloudflare to report that the commands succeeded.
 
-Run this SQL file **only once**. Running it again will produce errors such as
+Run `migration-engagement-metrics.sql` **only once**. Running it again will
+produce errors such as
 `duplicate column name`, because the columns already exist. If you see that
 message on your first attempt, stop instead of repeatedly running the SQL; the
 migration may already have been applied.
+
+You already ran `migration-session-grouping.sql` when session grouping was set
+up. Do not run that older migration again.
 
 Cloudflare automatically keeps D1 recovery history through Time Travel, so you
 can restore the database if a database change goes wrong.
@@ -75,8 +103,8 @@ can restore the database if a database change goes wrong.
 7. Select **Deploy**.
 8. Wait until Cloudflare says the deployment succeeded.
 
-Do not paste `migration-session-grouping.sql` into the Worker editor. The Worker
-editor receives only the contents of `worker/index.js`.
+Do not paste either SQL migration into the Worker editor. The Worker editor
+receives only the contents of `worker/index.js`.
 
 ### Check the database connection
 
@@ -114,20 +142,27 @@ Only pages containing this line send traffic information:
 ```
 
 Place that line immediately before `</body>` on any additional page you want to
-track. Your home page and projects page already contain it.
+track. It is already present on the main pages and several project-detail pages.
 
 ## Step 4: Test the result
 
 1. Open your portfolio home page in a private/incognito browser window.
-2. Open the projects page from the same window.
-3. Open
+2. Stay on it for at least 20 seconds and scroll partway down.
+3. Open the projects page from the same window.
+4. Click one of the résumé, email, or GitHub links. You can close the destination
+   after it opens.
+5. Open
    [https://overseer.matthewzhou05.workers.dev/admin](https://overseer.matthewzhou05.workers.dev/admin).
-4. Select **Refresh**.
+6. Select **Refresh**.
 
 You should see one new row with:
 
 - **Views** equal to `2`;
 - the home page and projects page listed under **Pages**;
+- an **Active time** value;
+- a desktop, mobile, or tablet **Device** value;
+- reading time and scroll depth beside the page; and
+- the click under **Tracked clicks**;
 - an earlier **First seen** time; and
 - a later **Last seen** time.
 
@@ -148,7 +183,8 @@ domain, which is fine for this private report.
 
 The email is scheduled for approximately **11:59 p.m. Eastern Time every day**.
 It summarizes the visitor sessions that started that day, total page views,
-popular pages, and visitor locations.
+active reading time, scroll depth, tracked clicks, device types, popular pages,
+and visitor locations.
 
 ### A. Create the Resend account and API key
 
@@ -228,7 +264,9 @@ cannot send to a different address.
 ### The Worker reports a missing column
 
 The D1 migration was not completed. Return to Step 1 and run
-`migration-session-grouping.sql` in the correct database.
+`migration-engagement-metrics.sql` in the correct database. If the error names
+an older session column such as `session_id`, the original
+`migration-session-grouping.sql` was not completed.
 
 ### D1 says "Requests without any query are not supported"
 
