@@ -76,19 +76,21 @@
 
       const hint = document.createElement("span");
       hint.className = "project-detail-text-toggle-hint";
-      hint.textContent = "Click to show/hide text";
 
       titleLine.append(visibleHeading, arrow);
       toggle.append(titleLine, hint);
       heading.appendChild(toggle);
 
       function setExpanded(expanded) {
+        const interactionWord = phoneLayout.matches ? "Tap" : "Click";
+
         section.classList.toggle("project-detail-text-expanded", expanded);
         toggle.setAttribute("aria-expanded", String(expanded));
         toggle.setAttribute(
           "aria-label",
           `${expanded ? "Hide" : "Show"} text for ${headingText}`,
         );
+        hint.textContent = `${interactionWord} to ${expanded ? "hide" : "show"} details`;
 
         collapsibleItems.forEach(function (item) {
           item.hidden = !expanded;

@@ -7205,10 +7205,81 @@ footer{
 }
 
 .project-detail-text-toggle-hint {
-    color: #8f8f8f;
-    font-size: .8rem;
-    font-weight: 400;
-    line-height: 1.4;
+    width: fit-content;
+    padding: .25rem .65rem;
+    display: inline-flex;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+    color: #c9edff;
+    background-image: linear-gradient(
+        105deg,
+        rgba(41, 151, 255, .14),
+        rgba(121, 84, 255, .22),
+        rgba(41, 151, 255, .14)
+    );
+    border: 1px solid rgba(116, 208, 255, .42);
+    border-radius: 999px;
+    box-shadow: 0 0 .45rem rgba(41, 151, 255, .18);
+    text-shadow: 0 0 .35rem rgba(143, 225, 255, .55);
+    font-size: .78rem;
+    font-weight: 500;
+    line-height: 1.3;
+    transition: color .18s ease, border-color .18s ease,
+        box-shadow .18s ease;
+}
+
+.project-detail-text-toggle-hint::after {
+    content: "";
+    width: 42%;
+    position: absolute;
+    top: -.25rem;
+    bottom: -.25rem;
+    left: -55%;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(211, 247, 255, .38),
+        transparent
+    );
+    opacity: 0;
+    pointer-events: none;
+}
+
+.project-detail-text-toggle:hover .project-detail-text-toggle-hint,
+.project-detail-text-toggle:focus .project-detail-text-toggle-hint,
+.project-detail-text-toggle:focus-visible .project-detail-text-toggle-hint {
+    color: #fff;
+    border-color: rgba(176, 234, 255, .8);
+    box-shadow: 0 0 .7rem rgba(41, 151, 255, .38);
+}
+
+.project-detail-text-toggle:hover .project-detail-text-toggle-hint::after,
+.project-detail-text-toggle:focus .project-detail-text-toggle-hint::after {
+    animation: project-detail-hint-sheen .85s ease-out 1;
+}
+
+@keyframes project-detail-hint-sheen {
+    0% {
+        opacity: 0;
+        transform: translateX(0) skewX(-18deg);
+    }
+
+    22% {
+        opacity: .7;
+    }
+
+    100% {
+        opacity: 0;
+        transform: translateX(390%) skewX(-18deg);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .project-detail-text-toggle:hover .project-detail-text-toggle-hint::after,
+    .project-detail-text-toggle:focus .project-detail-text-toggle-hint::after {
+        animation: none;
+    }
 }
 
 .project-detail-text-toggle-arrow {
@@ -7579,9 +7650,19 @@ html {
 
 @media screen and (max-width: 767px) {
 
-    .project-detail-media-grid.is-two,
-    .project-detail-media-grid.is-three {
+    .project-detail-media-grid.is-two {
         grid-template-columns: 1fr;
+    }
+
+    .project-detail-media-grid.is-three {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.5rem;
+    }
+
+    .project-detail-media-grid.is-three .project-detail-caption {
+        margin-top: 0.45rem;
+        font-size: 0.7rem;
+        line-height: 1.3;
     }
 }
 
@@ -7629,6 +7710,65 @@ html {
     height: 100%;
 
     display: block;
+}
+
+.project-detail-model-viewer.cad-load-pending {
+    display: grid;
+    place-items: center;
+}
+
+.project-detail-model-viewer.cad-load-pending model-viewer {
+    display: none;
+}
+
+.cad-load-gate {
+    width: min(100%, 30rem);
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    text-align: center;
+}
+
+.cad-load-status {
+    margin: 0;
+    color: #b8b8b8;
+    font-size: .95rem;
+    line-height: 1.55;
+}
+
+.cad-load-button {
+    min-height: 2.75rem;
+    padding: .65rem 1.1rem;
+    color: #eaf7ff;
+    background: linear-gradient(
+        135deg,
+        rgba(41, 151, 255, .3),
+        rgba(121, 84, 255, .32)
+    );
+    border: 1px solid rgba(130, 211, 255, .55);
+    border-radius: .5rem;
+    box-shadow: 0 0 .7rem rgba(41, 151, 255, .2);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color .2s ease, border-color .2s ease,
+        box-shadow .2s ease, transform .2s ease;
+}
+
+.cad-load-button:hover,
+.cad-load-button:focus-visible {
+    border-color: rgba(190, 235, 255, .9);
+    box-shadow: 0 0 1rem rgba(41, 151, 255, .38);
+    transform: translateY(-.1rem);
+    outline: none;
+}
+
+.cad-load-button:disabled {
+    cursor: wait;
+    opacity: .65;
+    transform: none;
 }
 
 @media screen and (max-width: 767px) {
@@ -8037,6 +8177,19 @@ body.lightbox-open {
 
 /* Keep these mobile-menu rules last so they override legacy responsive rules. */
 @media screen and (max-width: 767px) {
+    .page_layout {
+        padding-top: 3.75rem;
+    }
+
+    .sidenav {
+        width: 100%;
+        position: fixed;
+        top: 0;
+        right: 0;
+        left: 0;
+        z-index: 999;
+    }
+
     .sidenav_content {
         flex: 1;
     }
