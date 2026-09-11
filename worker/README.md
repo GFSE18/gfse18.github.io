@@ -34,6 +34,20 @@ The updated tracker also records:
 - desktop, mobile, or tablet device type; and
 - résumé, email, and GitHub link clicks.
 
+For new sessions, it also records a lightweight simulated-replay timeline:
+
+- rounded viewport width and height;
+- timestamped vertical scroll positions, sampled at most every 100 ms while
+  the page is moving;
+- up to 560 scroll samples and 700 total replay events per page;
+- internal-page navigation, tracked-link actions, and lightbox open/close
+  events; and
+- the exact portfolio image path and caption for a lightbox opening.
+
+The replay is an interactive approximation inside the admin report. It is not
+a screen recording and never captures screenshots, typed text, form content,
+or pointer coordinates.
+
 This is an anonymous browser session, not proof of a person's identity. A
 different browser, private window, device, or cleared browser storage creates a
 different session.
@@ -53,6 +67,9 @@ The data stays grouped around the same session ID:
 - `session_actions` keeps one summary row for each kind of tracked click during
   the session. Repeated clicks increase a counter instead of creating a new row
   every time.
+- `session_replay_pages` records each distinct page visit with its approximate
+  viewport and site release ID. `session_replay_events` stores the compact
+  scroll/action timeline for that page visit.
 
 The admin page combines these tables back into one displayed row per visitor
 session. It does not show engagement updates as separate visits.
@@ -64,8 +81,10 @@ session. It does not show engagement updates as separate visits.
 | `worker/migration-session-grouping.sql` | Original session migration; do not run it again if session grouping already works |
 | `worker/migration-engagement-metrics.sql` | Run once in D1 to add reading, scrolling, device, and click storage |
 | `worker/migration-scroll-behavior.sql` | Run once in D1 to add detailed scroll-behavior storage |
+| `worker/migration-session-replay.sql` | Run once in D1 to add simulated-replay storage |
 | `worker/index.js` | Replace the current code in your Cloudflare Worker |
-| `js/analytics.js` | Keep this file in your GitHub Pages website repository |
+| `js/analytics.js` | Tracks sessions and supplies the replay-mode page viewer |
+| `js/lightbox.js` | Records the exact portfolio image opened in a lightbox and opens it during replay |
 
 Complete the following steps in order.
 
@@ -102,6 +121,15 @@ Run this migration only once. It only adds a new table, so all existing visit
 and engagement data remains unchanged. Older sessions will simply show no
 scroll profile in the report window.
 
+### Add the simulated-replay tables
+
+1. In the same D1 Console, open `worker/migration-session-replay.sql`.
+2. Copy its contents into the console and select **Execute**.
+
+Run this migration only once. It adds the replay tables without changing old
+visit records. Reports for old sessions will keep their summary but will say
+that replay data is unavailable.
+
 Cloudflare automatically keeps D1 recovery history through Time Travel, so you
 can restore the database if a database change goes wrong.
 
@@ -118,7 +146,7 @@ can restore the database if a database change goes wrong.
 7. Select **Deploy**.
 8. Wait until Cloudflare says the deployment succeeded.
 
-Do not paste either SQL migration into the Worker editor. The Worker editor
+Do not paste any SQL migration into the Worker editor. The Worker editor
 receives only the contents of `worker/index.js`.
 
 ### Check the database connection
@@ -135,12 +163,18 @@ The capitalization matters: the code expects `DB`, not `db`.
 
 ## Step 3: Publish the website tracking file
 
-The file `js/analytics.js` in this website folder has already been updated. It
-creates the session ID and sends it to the Worker.
+The files `js/analytics.js` and `js/lightbox.js` in this website folder have
+already been updated. They create the session ID, capture the replay timeline,
+and record exact lightbox images.
 
 Publish the website to GitHub Pages the same way you normally publish changes.
 For example, commit and push the updated `js/analytics.js` file to the GitHub
 branch used by GitHub Pages.
+
+Before a later release that changes the portfolio's visible pages or images,
+increment the `SITE_VERSION` value near the top of `js/analytics.js`. This is a
+small release identifier (for example, `2026-09-project-update`) shown in the
+replay so you know which published portfolio revision it represents.
 
 If you edit the GitHub repository through the GitHub website instead:
 
@@ -179,6 +213,8 @@ You should see one new row with:
 - an individual **View report** button for the session;
 - pages, reading time, detailed scroll behavior, tracked clicks, and entry
   referrer inside the report window; and
+- a **Replay** tab. Select a visited page, then use Play, the timeline scrubber,
+  or the speed control to animate the recorded scroll and lightbox events.
 - an earlier **First seen** time; and
 - a later **Last seen** time.
 
@@ -281,10 +317,11 @@ cannot send to a different address.
 
 The applicable D1 migration was not completed. Return to Step 1 and run
 `migration-scroll-behavior.sql` for an error mentioning
-`session_page_scroll_profiles`, or `migration-engagement-metrics.sql` for an
-older engagement table or column. If the error names an older session column
-such as `session_id`, the original `migration-session-grouping.sql` was not
-completed.
+`session_page_scroll_profiles`, `migration-session-replay.sql` for an error
+mentioning `session_replay_pages` or `session_replay_events`, or
+`migration-engagement-metrics.sql` for an older engagement table or column. If
+the error names an older session column such as `session_id`, the original
+`migration-session-grouping.sql` was not completed.
 
 ### D1 says "Requests without any query are not supported"
 

@@ -1,11 +1,20 @@
 const ALLOWED_ORIGIN = "https://gfse18.github.io";
 const MAX_PAGE_HISTORY = 100;
+const MAX_REPLAY_DURATION_MS = 30 * 60 * 1000;
 const REPORT_TIME_ZONE = "America/New_York";
 const DEVICE_TYPES = new Set(["desktop", "mobile", "tablet"]);
 const TRACKED_ACTIONS = new Set([
   "resume_open",
   "email_click",
   "github_click"
+]);
+const REPLAY_EVENT_TYPES = new Set([
+  "scroll",
+  "lightbox_open",
+  "lightbox_close",
+  "action",
+  "navigation",
+  "pagehide"
 ]);
 const SESSION_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -86,7 +95,31 @@ export default {
             ))
             FROM session_actions AS actions
             WHERE actions.session_id = visits.session_id
-          ), '[]') AS actions
+          ), '[]') AS actions,
+          COALESCE((
+            SELECT json_group_array(json_object(
+              'pageInstanceId', replay_page.page_instance_id,
+              'page', replay_page.page,
+              'siteVersion', replay_page.site_version,
+              'viewportWidth', replay_page.viewport_width,
+              'viewportHeight', replay_page.viewport_height,
+              'documentHeight', replay_page.document_height,
+              'startedAt', replay_page.started_at,
+              'lastSeen', replay_page.last_seen,
+              'events', COALESCE((
+                SELECT json_group_array(json_object(
+                  'index', replay_event.event_index,
+                  'atMs', replay_event.at_ms,
+                  'type', replay_event.event_type,
+                  'payload', replay_event.payload_json
+                ))
+                FROM session_replay_events AS replay_event
+                WHERE replay_event.page_instance_id = replay_page.page_instance_id
+              ), '[]')
+            ))
+            FROM session_replay_pages AS replay_page
+            WHERE replay_page.session_id = visits.session_id
+          ), '[]') AS replay_pages
         FROM visits
         ORDER BY COALESCE(last_seen, timestamp) DESC
         LIMIT 100
@@ -172,6 +205,50 @@ export default {
           updated_at = excluded.updated_at
       `)
         .bind(sessionId, page || "", JSON.stringify(scrollProfile), now)
+        .run();
+
+      return new Response(null, { status: 204, headers: corsHeaders });
+    }
+
+    if (eventType === "replay") {
+      const pageInstanceId = validSessionId(body.pageInstanceId)
+        ? body.pageInstanceId
+        : null;
+      const events = normalizeReplayEvents(body.events);
+
+      if (!pageInstanceId || events.length === 0) {
+        return new Response(null, { status: 204, headers: corsHeaders });
+      }
+
+      const statements = events.map((event) =>
+        env.DB.prepare(`
+          INSERT INTO session_replay_events (
+            page_instance_id,
+            event_index,
+            at_ms,
+            event_type,
+            payload_json,
+            created_at
+          )
+          VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+          ON CONFLICT(page_instance_id, event_index) DO NOTHING
+        `).bind(
+          pageInstanceId,
+          event.index,
+          event.atMs,
+          event.type,
+          JSON.stringify(event.payload),
+          now
+        )
+      );
+
+      await env.DB.batch(statements);
+      await env.DB.prepare(`
+        UPDATE session_replay_pages
+        SET last_seen = ?1
+        WHERE page_instance_id = ?2 AND session_id = ?3
+      `)
+        .bind(now, pageInstanceId, sessionId)
         .run();
 
       return new Response(null, { status: 204, headers: corsHeaders });
@@ -295,6 +372,41 @@ export default {
       )
       .run();
 
+    const replayPage = normalizeReplayPage(body.replayPage);
+    if (replayPage) {
+      await env.DB.prepare(`
+        INSERT INTO session_replay_pages (
+          page_instance_id,
+          session_id,
+          page,
+          site_version,
+          viewport_width,
+          viewport_height,
+          document_height,
+          started_at,
+          last_seen
+        )
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?8)
+        ON CONFLICT(page_instance_id) DO UPDATE SET
+          last_seen = excluded.last_seen,
+          document_height = MAX(
+            session_replay_pages.document_height,
+            excluded.document_height
+          )
+      `)
+        .bind(
+          replayPage.pageInstanceId,
+          sessionId,
+          page || "",
+          replayPage.siteVersion,
+          replayPage.viewportWidth,
+          replayPage.viewportHeight,
+          replayPage.documentHeight,
+          now
+        )
+        .run();
+    }
+
     return new Response(null, { status: 204, headers: corsHeaders });
   },
 
@@ -322,6 +434,81 @@ function clampNumber(value, minimum, maximum) {
   const number = Number(value);
   if (!Number.isFinite(number)) return minimum;
   return Math.min(maximum, Math.max(minimum, number));
+}
+
+function validSessionId(value) {
+  return typeof value === "string" && SESSION_ID_PATTERN.test(value);
+}
+
+function normalizeReplayPage(value) {
+  if (!value || typeof value !== "object" || !validSessionId(value.pageInstanceId)) {
+    return null;
+  }
+
+  const siteVersion = cleanString(value.siteVersion, 100) || "unknown";
+  if (!/^[a-zA-Z0-9._-]+$/.test(siteVersion)) return null;
+
+  return {
+    pageInstanceId: value.pageInstanceId,
+    siteVersion,
+    viewportWidth: Math.round(clampNumber(value.viewportWidth, 100, 5000)),
+    viewportHeight: Math.round(clampNumber(value.viewportHeight, 100, 5000)),
+    documentHeight: Math.round(clampNumber(value.documentHeight, 100, 10000000))
+  };
+}
+
+function normalizeReplayEvents(value) {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .slice(0, 200)
+    .map((event) => {
+      if (!event || typeof event !== "object" || !REPLAY_EVENT_TYPES.has(event.type)) {
+        return null;
+      }
+
+      const index = Math.round(clampNumber(event.index, 0, 10000));
+      const atMs = Math.round(clampNumber(event.atMs, 0, MAX_REPLAY_DURATION_MS));
+      return {
+        index,
+        atMs,
+        type: event.type,
+        payload: normalizeReplayPayload(event.type, event.payload)
+      };
+    })
+    .filter(Boolean);
+}
+
+function normalizeReplayPayload(type, value) {
+  const payload = value && typeof value === "object" ? value : {};
+
+  if (type === "scroll") {
+    return {
+      scrollY: Math.round(clampNumber(payload.scrollY, 0, 10000000)),
+      documentHeight: Math.round(clampNumber(payload.documentHeight, 100, 10000000))
+    };
+  }
+
+  if (type === "lightbox_open") {
+    return {
+      imageSrc: cleanString(payload.imageSrc, 1000) || "",
+      imageAlt: cleanString(payload.imageAlt, 500) || "",
+      galleryIndex: Math.round(clampNumber(payload.galleryIndex, 0, 10000))
+    };
+  }
+
+  if (type === "action") {
+    const action = typeof payload.action === "string" && TRACKED_ACTIONS.has(payload.action)
+      ? payload.action
+      : "unknown";
+    return { action, target: cleanString(payload.target, 1000) || "" };
+  }
+
+  if (type === "navigation") {
+    return { target: cleanString(payload.target, 500) || "" };
+  }
+
+  return {};
 }
 
 function normalizeScrollProfile(value) {
@@ -720,12 +907,16 @@ const adminPage = String.raw`<!DOCTYPE html>
     .refresh, .report-button, .close { padding: 8px 14px; cursor: pointer; }
     .refresh { margin-bottom: 16px; }
     .report-button { border: 1px solid #777; background: white; border-radius: 5px; white-space: nowrap; }
-    dialog { width: min(760px, calc(100vw - 32px)); max-height: min(820px, calc(100vh - 48px)); border: 0; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,.3); padding: 0; color: #222; }
+    dialog { width: min(1100px, calc(100vw - 32px)); max-height: min(900px, calc(100vh - 48px)); border: 0; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,.3); padding: 0; color: #222; }
     dialog::backdrop { background: rgba(0,0,0,.42); }
     .report-header { display: flex; gap: 16px; align-items: center; justify-content: space-between; padding: 20px 24px; border-bottom: 1px solid #e5e5e5; }
     .report-header h2 { margin: 0; }
     .close { border: 1px solid #999; border-radius: 5px; background: white; }
     .report-content { padding: 0 24px 24px; }
+    .report-tabs { display: flex; gap: 6px; padding: 12px 24px 0; border-bottom: 1px solid #e5e5e5; }
+    .report-tab { border: 0; border-bottom: 3px solid transparent; background: transparent; padding: 10px 12px; cursor: pointer; }
+    .report-tab[aria-selected="true"] { border-bottom-color: #222; font-weight: 700; }
+    [hidden] { display: none !important; }
     .report-section { padding: 20px 0; border-bottom: 1px solid #e9e9e9; }
     .report-section:last-child { border-bottom: 0; }
     .report-section h3 { margin: 0 0 10px; font-size: 16px; }
@@ -737,6 +928,14 @@ const adminPage = String.raw`<!DOCTYPE html>
     .behavior-lines { margin: 0; padding-left: 18px; line-height: 1.5; }
     .trajectory { margin-top: 10px; font-size: 12px; line-height: 1.5; word-break: break-word; }
     .referrer { overflow-wrap: anywhere; }
+    .replay-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 14px 0 10px; }
+    .replay-controls input { flex: 1 1 260px; }
+    .replay-controls button, .replay-controls select { padding: 7px 10px; }
+    .replay-stage { background: #d8dce0; border-radius: 8px; overflow: hidden; position: relative; }
+    .replay-viewport { transform-origin: top left; background: white; box-shadow: 0 2px 14px rgba(0,0,0,.2); }
+    .replay-frame { display: block; border: 0; background: white; }
+    .replay-meta { display: flex; flex-wrap: wrap; gap: 12px; color: #555; font-size: 13px; }
+    .replay-events { margin: 14px 0 0; padding-left: 18px; line-height: 1.6; }
   </style>
 </head>
 <body>
@@ -758,14 +957,33 @@ const adminPage = String.raw`<!DOCTYPE html>
   </div>
   <dialog id="session-report" aria-labelledby="report-title">
     <div class="report-header"><h2 id="report-title">Session report</h2><button class="close" id="close-report" type="button">Close</button></div>
+    <div class="report-tabs" role="tablist" aria-label="Session report sections">
+      <button class="report-tab" id="summary-tab" type="button" role="tab" aria-selected="true">Summary</button>
+      <button class="report-tab" id="replay-tab" type="button" role="tab" aria-selected="false">Replay</button>
+    </div>
     <div class="report-content" id="report-content"></div>
+    <div class="report-content" id="replay-content" hidden></div>
   </dialog>
   <script>
     const tbody = document.getElementById("visits");
     const reportDialog = document.getElementById("session-report");
     const reportContent = document.getElementById("report-content");
+    const replayContent = document.getElementById("replay-content");
+    const summaryTab = document.getElementById("summary-tab");
+    const replayTab = document.getElementById("replay-tab");
+    let stopReplay = () => {};
     document.getElementById("refresh").addEventListener("click", loadVisits);
-    document.getElementById("close-report").addEventListener("click", () => reportDialog.close());
+    document.getElementById("close-report").addEventListener("click", () => { stopReplay(); reportDialog.close(); });
+    reportDialog.addEventListener("close", () => stopReplay());
+    function showPanel(name) {
+      const replay = name === "replay";
+      summaryTab.setAttribute("aria-selected", String(!replay));
+      replayTab.setAttribute("aria-selected", String(replay));
+      reportContent.hidden = replay;
+      replayContent.hidden = !replay;
+    }
+    summaryTab.addEventListener("click", () => showPanel("summary"));
+    replayTab.addEventListener("click", () => showPanel("replay"));
 
     function formatTime(value) {
       if (!value) return "";
@@ -838,7 +1056,164 @@ const adminPage = String.raw`<!DOCTYPE html>
       }
     }
     function appendSection(title) { const section = element("section", undefined, "report-section"); section.append(element("h3", title)); reportContent.append(section); return section; }
+    function replayActionLabel(event) {
+      const payload = jsonObject(event.payload);
+      if (event.type === "lightbox_open") return "Opened image: " + (payload.imageAlt || payload.imageSrc || "image");
+      if (event.type === "lightbox_close") return "Closed image lightbox";
+      if (event.type === "action") return actionName(payload.action);
+      if (event.type === "navigation") return "Navigated to " + (payload.target || "another page");
+      return event.type;
+    }
+    function replayPages(visit) {
+      return jsonArray(visit.replay_pages).map((replayPage) => ({
+        ...replayPage,
+        events: jsonArray(replayPage.events).map((event) => ({ ...event, payload: jsonObject(event.payload) }))
+      })).sort((first, second) => String(first.startedAt).localeCompare(String(second.startedAt)));
+    }
+    function makeReplayUrl(page) {
+      const url = new URL(page || "/", "https://gfse18.github.io");
+      url.searchParams.set("portfolioReplay", "1");
+      return url.toString();
+    }
+    function buildReplay(visit) {
+      stopReplay();
+      replayContent.replaceChildren();
+      const pages = replayPages(visit);
+      if (!pages.length) {
+        replayContent.append(element("p", "Replay data is available only for sessions recorded after this update was published."));
+        stopReplay = () => {};
+        return;
+      }
+
+      const heading = element("h3", "Simulated page replay");
+      const intro = element("p", "This is an interactive reconstruction from recorded scrolling and site actions, not a screen recording.");
+      const pageSelect = element("select");
+      for (const replayPage of pages) {
+        const option = element("option", replayPage.page + " · " + formatTime(replayPage.startedAt));
+        option.value = replayPage.pageInstanceId;
+        pageSelect.append(option);
+      }
+      const controls = element("div", undefined, "replay-controls");
+      const playButton = element("button", "Play"); playButton.type = "button";
+      const timeLabel = element("span", "0:00 / 0:00");
+      const speed = element("select");
+      for (const value of ["0.5", "1", "2"]) { const option = element("option", value + "×"); option.value = value; if (value === "1") option.selected = true; speed.append(option); }
+      const scrubber = element("input"); scrubber.type = "range"; scrubber.min = "0"; scrubber.value = "0"; scrubber.step = "10";
+      controls.append(playButton, pageSelect, scrubber, timeLabel, speed);
+      const stage = element("div", undefined, "replay-stage");
+      const viewport = element("div", undefined, "replay-viewport");
+      const frame = document.createElement("iframe");
+      frame.className = "replay-frame";
+      frame.title = "Simulated visitor page replay";
+      frame.setAttribute("sandbox", "allow-scripts allow-same-origin");
+      viewport.append(frame); stage.append(viewport);
+      const meta = element("div", undefined, "replay-meta");
+      const eventList = element("ul", undefined, "replay-events");
+      replayContent.append(heading, intro, controls, stage, meta, eventList);
+
+      let selected = pages[0];
+      let currentTime = 0;
+      let playing = false;
+      let animationFrame = null;
+      let startedWallTime = 0;
+      let startedReplayTime = 0;
+      let frameReady = false;
+      let lastLightboxState = "";
+      const portfolioOrigin = "https://gfse18.github.io";
+
+      function formatReplayTime(ms) {
+        const seconds = Math.max(0, Math.round(ms / 1000));
+        return Math.floor(seconds / 60) + ":" + String(seconds % 60).padStart(2, "0");
+      }
+      function selectedEvents() {
+        return selected.events.slice().sort((a, b) => Number(a.atMs) - Number(b.atMs));
+      }
+      function duration() {
+        return Math.max(1000, ...selectedEvents().map((event) => Number(event.atMs) || 0));
+      }
+      function scrollYAt(time) {
+        const points = selectedEvents().filter((event) => event.type === "scroll");
+        if (!points.length) return 0;
+        let previous = points[0];
+        for (const next of points.slice(1)) {
+          if (time <= Number(next.atMs)) {
+            const span = Math.max(1, Number(next.atMs) - Number(previous.atMs));
+            const progress = Math.max(0, Math.min(1, (time - Number(previous.atMs)) / span));
+            return Math.round(Number(previous.payload.scrollY || 0) + (Number(next.payload.scrollY || 0) - Number(previous.payload.scrollY || 0)) * progress);
+          }
+          previous = next;
+        }
+        return Number(previous.payload.scrollY) || 0;
+      }
+      function lightboxAt(time) {
+        let state = null;
+        for (const event of selectedEvents()) {
+          if (Number(event.atMs) > time) break;
+          if (event.type === "lightbox_open") state = event;
+          if (event.type === "lightbox_close") state = null;
+        }
+        return state;
+      }
+      function sendCommand(command) {
+        if (frameReady) frame.contentWindow.postMessage({ type: "portfolio-replay-command", command }, portfolioOrigin);
+      }
+      function applyFrame(time) {
+        currentTime = Math.max(0, Math.min(duration(), time));
+        scrubber.value = String(currentTime);
+        timeLabel.textContent = formatReplayTime(currentTime) + " / " + formatReplayTime(duration());
+        sendCommand({ type: "scroll", scrollY: scrollYAt(currentTime) });
+        const lightbox = lightboxAt(currentTime);
+        const stateKey = lightbox ? "open:" + (lightbox.payload.imageSrc || "") : "closed";
+        if (stateKey !== lastLightboxState) {
+          lastLightboxState = stateKey;
+          sendCommand(lightbox ? { type: "lightbox_open", ...lightbox.payload } : { type: "lightbox_close" });
+        }
+      }
+      function stopPlaying() {
+        playing = false; playButton.textContent = "Play";
+        if (animationFrame) cancelAnimationFrame(animationFrame);
+        animationFrame = null;
+      }
+      function tick(now) {
+        if (!playing) return;
+        applyFrame(startedReplayTime + (now - startedWallTime) * Number(speed.value));
+        if (currentTime >= duration()) { stopPlaying(); return; }
+        animationFrame = requestAnimationFrame(tick);
+      }
+      function startPlaying() {
+        if (currentTime >= duration()) applyFrame(0);
+        playing = true; playButton.textContent = "Pause";
+        startedWallTime = performance.now(); startedReplayTime = currentTime;
+        animationFrame = requestAnimationFrame(tick);
+      }
+      function configurePage() {
+        stopPlaying(); frameReady = false; lastLightboxState = ""; currentTime = 0;
+        const width = Math.max(100, Number(selected.viewportWidth) || 1200);
+        const height = Math.max(100, Number(selected.viewportHeight) || 800);
+        const scale = Math.min(1, 980 / width, 480 / height);
+        stage.style.height = Math.round(height * scale) + "px";
+        viewport.style.width = width + "px"; viewport.style.height = height + "px";
+        viewport.style.transform = "scale(" + scale + ")";
+        frame.width = String(width); frame.height = String(height);
+        frame.src = makeReplayUrl(selected.page);
+        scrubber.max = String(duration());
+        meta.replaceChildren(element("span", width + " × " + height + " approximate viewport"), element("span", "Site version: " + (selected.siteVersion || "unknown")), element("span", selectedEvents().filter((event) => event.type === "scroll").length + " scroll samples"));
+        eventList.replaceChildren();
+        const semanticEvents = selectedEvents().filter((event) => event.type !== "scroll" && event.type !== "pagehide");
+        if (!semanticEvents.length) eventList.append(element("li", "No lightbox or tracked-link actions were recorded on this page."));
+        for (const event of semanticEvents) eventList.append(element("li", formatReplayTime(event.atMs) + " — " + replayActionLabel(event)));
+      }
+      frame.addEventListener("load", () => { frameReady = true; lastLightboxState = ""; applyFrame(currentTime); });
+      playButton.addEventListener("click", () => playing ? stopPlaying() : startPlaying());
+      scrubber.addEventListener("input", () => { stopPlaying(); applyFrame(Number(scrubber.value)); });
+      speed.addEventListener("change", () => { if (playing) { startedWallTime = performance.now(); startedReplayTime = currentTime; } });
+      pageSelect.addEventListener("change", () => { selected = pages.find((page) => page.pageInstanceId === pageSelect.value) || pages[0]; configurePage(); });
+      configurePage();
+      stopReplay = () => { stopPlaying(); frame.src = "about:blank"; };
+    }
     function showReport(visit) {
+      stopReplay();
+      showPanel("summary");
       reportContent.replaceChildren();
       const overview = appendSection("Session overview");
       overview.append(element("p", formatTime(visit.first_seen) + " to " + formatTime(visit.last_seen) + " · " + (visit.pageviews || 0) + " views · " + formatDuration(visit.active_seconds) + " active"));
@@ -861,6 +1236,7 @@ const adminPage = String.raw`<!DOCTYPE html>
       for (const [label, count] of actionCounts) clicks.append(element("div", count > 1 ? label + " ×" + count : label));
       const referrer = appendSection("Entry referrer");
       referrer.append(element("div", visit.referrer || "Direct visit or no referrer supplied.", "referrer mono"));
+      buildReplay(visit);
       reportDialog.showModal();
     }
     async function loadVisits() {
