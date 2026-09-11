@@ -48,6 +48,9 @@ The replay is an interactive approximation inside the admin report. It is not
 a screen recording and never captures screenshots, typed text, form content,
 or pointer coordinates.
 
+Detailed replay chunks are automatically removed after 60 days by the existing
+daily Worker schedule. The normal session summary remains stored.
+
 This is an anonymous browser session, not proof of a person's identity. A
 different browser, private window, device, or cleared browser storage creates a
 different session.
@@ -68,8 +71,9 @@ The data stays grouped around the same session ID:
   the session. Repeated clicks increase a counter instead of creating a new row
   every time.
 - `session_replay_pages` records each distinct page visit with its approximate
-  viewport and site release ID. `session_replay_events` stores the compact
-  scroll/action timeline for that page visit.
+  viewport and site release ID. `session_replay_chunks` stores the compact
+  scroll/action timeline in 15-second JSON chunks, so one minute of replay
+  normally creates four writes instead of thousands of individual event rows.
 
 The admin page combines these tables back into one displayed row per visitor
 session. It does not show engagement updates as separate visits.
@@ -82,6 +86,7 @@ session. It does not show engagement updates as separate visits.
 | `worker/migration-engagement-metrics.sql` | Run once in D1 to add reading, scrolling, device, and click storage |
 | `worker/migration-scroll-behavior.sql` | Run once in D1 to add detailed scroll-behavior storage |
 | `worker/migration-session-replay.sql` | Run once in D1 to add simulated-replay storage |
+| `worker/migration-replay-chunks.sql` | Run once in D1 to store replay uploads as compact chunks |
 | `worker/index.js` | Replace the current code in your Cloudflare Worker |
 | `js/analytics.js` | Tracks sessions and supplies the replay-mode page viewer |
 | `js/lightbox.js` | Records the exact portfolio image opened in a lightbox and opens it during replay |
@@ -129,6 +134,15 @@ scroll profile in the report window.
 Run this migration only once. It adds the replay tables without changing old
 visit records. Reports for old sessions will keep their summary but will say
 that replay data is unavailable.
+
+### Add compact replay-chunk storage
+
+1. In the same D1 Console, open `worker/migration-replay-chunks.sql`.
+2. Copy its contents into the console and select **Execute**.
+
+Run this migration once before deploying the latest Worker. It changes new
+replay storage from one database row per scroll event to one row per uploaded
+chunk. Existing early replay records remain readable.
 
 Cloudflare automatically keeps D1 recovery history through Time Travel, so you
 can restore the database if a database change goes wrong.
@@ -215,6 +229,10 @@ You should see one new row with:
   referrer inside the report window; and
 - a **Replay** tab. Select a visited page, then use Play, the timeline scrubber,
   or the speed control to animate the recorded scroll and lightbox events.
+
+The summary view also draws a percentage-over-time scroll graph for each page.
+Its x-axis is elapsed time from the page opening and its y-axis is the visitor's
+scroll position as a percentage of the scrollable page.
 - an earlier **First seen** time; and
 - a later **Last seen** time.
 

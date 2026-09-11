@@ -1,6 +1,7 @@
 const ALLOWED_ORIGIN = "https://gfse18.github.io";
 const MAX_PAGE_HISTORY = 100;
 const MAX_REPLAY_DURATION_MS = 30 * 60 * 1000;
+const REPLAY_RETENTION_DAYS = 60;
 const REPORT_TIME_ZONE = "America/New_York";
 const DEVICE_TYPES = new Set(["desktop", "mobile", "tablet"]);
 const TRACKED_ACTIONS = new Set([
@@ -115,6 +116,14 @@ export default {
                 ))
                 FROM session_replay_events AS replay_event
                 WHERE replay_event.page_instance_id = replay_page.page_instance_id
+              ), '[]'),
+              'chunks', COALESCE((
+                SELECT json_group_array(json_object(
+                  'index', replay_chunk.chunk_index,
+                  'events', replay_chunk.events_json
+                ))
+                FROM session_replay_chunks AS replay_chunk
+                WHERE replay_chunk.page_instance_id = replay_page.page_instance_id
               ), '[]')
             ))
             FROM session_replay_pages AS replay_page
@@ -214,41 +223,36 @@ export default {
       const pageInstanceId = validSessionId(body.pageInstanceId)
         ? body.pageInstanceId
         : null;
+      const chunkIndex = Math.round(clampNumber(body.chunkIndex, 0, 10000));
+      const documentHeight = Math.round(
+        clampNumber(body.documentHeight, 100, 10000000)
+      );
       const events = normalizeReplayEvents(body.events);
 
       if (!pageInstanceId || events.length === 0) {
         return new Response(null, { status: 204, headers: corsHeaders });
       }
 
-      const statements = events.map((event) =>
-        env.DB.prepare(`
-          INSERT INTO session_replay_events (
-            page_instance_id,
-            event_index,
-            at_ms,
-            event_type,
-            payload_json,
-            created_at
-          )
-          VALUES (?1, ?2, ?3, ?4, ?5, ?6)
-          ON CONFLICT(page_instance_id, event_index) DO NOTHING
-        `).bind(
-          pageInstanceId,
-          event.index,
-          event.atMs,
-          event.type,
-          JSON.stringify(event.payload),
-          now
+      await env.DB.prepare(`
+        INSERT INTO session_replay_chunks (
+          page_instance_id,
+          chunk_index,
+          events_json,
+          created_at
         )
-      );
+        VALUES (?1, ?2, ?3, ?4)
+        ON CONFLICT(page_instance_id, chunk_index) DO NOTHING
+      `)
+        .bind(pageInstanceId, chunkIndex, JSON.stringify(events), now)
+        .run();
 
-      await env.DB.batch(statements);
       await env.DB.prepare(`
         UPDATE session_replay_pages
-        SET last_seen = ?1
-        WHERE page_instance_id = ?2 AND session_id = ?3
+        SET last_seen = ?1,
+            document_height = MAX(document_height, ?2)
+        WHERE page_instance_id = ?3 AND session_id = ?4
       `)
-        .bind(now, pageInstanceId, sessionId)
+        .bind(now, documentHeight, pageInstanceId, sessionId)
         .run();
 
       return new Response(null, { status: 204, headers: corsHeaders });
@@ -422,7 +426,10 @@ export default {
       return;
     }
 
-    await sendDailyReport(env, easternTime.date);
+    await purgeExpiredReplayData(env, easternTime.date);
+    if (env.RESEND_API_KEY && env.REPORT_TO) {
+      await sendDailyReport(env, easternTime.date);
+    }
   }
 };
 
@@ -461,20 +468,28 @@ function normalizeReplayEvents(value) {
   if (!Array.isArray(value)) return [];
 
   return value
-    .slice(0, 200)
-    .map((event) => {
+    .slice(0, 700)
+    .map((input) => {
+      const event = Array.isArray(input)
+        ? {
+            index: input[0],
+            atMs: input[1],
+            type: input[2],
+            payload: input[3]
+          }
+        : input;
       if (!event || typeof event !== "object" || !REPLAY_EVENT_TYPES.has(event.type)) {
         return null;
       }
 
       const index = Math.round(clampNumber(event.index, 0, 10000));
       const atMs = Math.round(clampNumber(event.atMs, 0, MAX_REPLAY_DURATION_MS));
-      return {
+      return [
         index,
         atMs,
-        type: event.type,
-        payload: normalizeReplayPayload(event.type, event.payload)
-      };
+        event.type,
+        normalizeReplayPayload(event.type, event.payload)
+      ];
     })
     .filter(Boolean);
 }
@@ -484,8 +499,7 @@ function normalizeReplayPayload(type, value) {
 
   if (type === "scroll") {
     return {
-      scrollY: Math.round(clampNumber(payload.scrollY, 0, 10000000)),
-      documentHeight: Math.round(clampNumber(payload.documentHeight, 100, 10000000))
+      scrollY: Math.round(clampNumber(payload.scrollY, 0, 10000000))
     };
   }
 
@@ -558,6 +572,29 @@ function inferDeviceType(userAgent) {
   if (/Android/i.test(value) && !/Mobile/i.test(value)) return "tablet";
   if (/Mobi|Android|iPhone|iPod/i.test(value)) return "mobile";
   return "desktop";
+}
+
+async function purgeExpiredReplayData(env, reportDate) {
+  const cutoffDate = addDays(reportDate, -REPLAY_RETENTION_DAYS);
+  const cutoff = zonedMidnightToUtc(cutoffDate, REPORT_TIME_ZONE).toISOString();
+  const expiredPageIds = `
+    SELECT page_instance_id
+    FROM session_replay_pages
+    WHERE last_seen < ?1
+  `;
+
+  await env.DB.prepare(`
+    DELETE FROM session_replay_chunks
+    WHERE page_instance_id IN (${expiredPageIds})
+  `).bind(cutoff).run();
+  await env.DB.prepare(`
+    DELETE FROM session_replay_events
+    WHERE page_instance_id IN (${expiredPageIds})
+  `).bind(cutoff).run();
+  await env.DB.prepare(`
+    DELETE FROM session_replay_pages
+    WHERE last_seen < ?1
+  `).bind(cutoff).run();
 }
 
 async function sendDailyReport(env, reportDate) {
@@ -925,6 +962,10 @@ const adminPage = String.raw`<!DOCTYPE html>
     .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin: 12px 0; }
     .fact { background: #f6f7f8; border-radius: 6px; padding: 9px; font-size: 13px; }
     .fact strong { display: block; font-size: 15px; margin-bottom: 2px; }
+    .scroll-chart { margin: 14px 0; border: 1px solid #e2e5e8; border-radius: 8px; padding: 10px; }
+    .scroll-chart-title { margin: 0 0 6px; font-size: 13px; font-weight: 700; }
+    .scroll-chart-note { color: #666; font-size: 12px; }
+    .scroll-chart svg { display: block; width: 100%; height: auto; }
     .behavior-lines { margin: 0; padding-left: 18px; line-height: 1.5; }
     .trajectory { margin-top: 10px; font-size: 12px; line-height: 1.5; word-break: break-word; }
     .referrer { overflow-wrap: anywhere; }
@@ -1027,15 +1068,71 @@ const adminPage = String.raw`<!DOCTYPE html>
     function addFact(container, value, label) {
       const fact = element("div", undefined, "fact"); fact.append(element("strong", value)); fact.append(element("span", label)); container.append(fact);
     }
-    function addScrollProfile(container, metric) {
+    function scrollChartPoints(replayPage, profile) {
+      if (replayPage) {
+        const maximum = Math.max(1, (Number(replayPage.documentHeight) || 0) - (Number(replayPage.viewportHeight) || 0));
+        const points = replayPage.events
+          .filter((event) => event.type === "scroll")
+          .map((event) => ({
+            atMs: Number(event.atMs) || 0,
+            percent: Math.max(0, Math.min(100, ((Number(event.payload.scrollY) || 0) / maximum) * 100))
+          }))
+          .sort((first, second) => first.atMs - second.atMs);
+        if (points.length) return { points, label: "Recorded replay timeline" };
+      }
+      const legacy = jsonArray(profile.trajectory).map((point) => ({
+        atMs: Number(point[0]) || 0,
+        percent: Number(point[1]) || 0
+      }));
+      return { points: legacy, label: "Coarse legacy timeline" };
+    }
+    function renderScrollChart(container, chart) {
+      const wrapper = element("div", undefined, "scroll-chart");
+      wrapper.append(element("div", "Scroll position over time", "scroll-chart-title"));
+      if (chart.points.length < 2) {
+        wrapper.append(element("div", "Not enough recorded movement to draw a timeline.", "scroll-chart-note"));
+        container.append(wrapper);
+        return;
+      }
+      const width = 680; const height = 210; const left = 46; const right = 14; const top = 16; const bottom = 34;
+      const graphWidth = width - left - right; const graphHeight = height - top - bottom;
+      const duration = Math.max(1, ...chart.points.map((point) => point.atMs));
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("viewBox", "0 0 " + width + " " + height);
+      svg.setAttribute("role", "img");
+      svg.setAttribute("aria-label", "Scroll percentage over time");
+      const addSvg = (tag, attributes, text) => {
+        const node = document.createElementNS("http://www.w3.org/2000/svg", tag);
+        for (const [name, value] of Object.entries(attributes)) node.setAttribute(name, value);
+        if (text !== undefined) node.textContent = text;
+        svg.append(node);
+      };
+      for (const percent of [0, 50, 100]) {
+        const y = top + graphHeight - (percent / 100) * graphHeight;
+        addSvg("line", { x1: left, x2: width - right, y1: y, y2: y, stroke: "#dce1e6", "stroke-width": "1" });
+        addSvg("text", { x: left - 8, y: y + 4, "text-anchor": "end", fill: "#59636d", "font-size": "11" }, percent + "%");
+      }
+      addSvg("line", { x1: left, x2: width - right, y1: top + graphHeight, y2: top + graphHeight, stroke: "#8d98a3", "stroke-width": "1" });
+      const coordinates = chart.points.map((point) => {
+        const x = left + (point.atMs / duration) * graphWidth;
+        const y = top + graphHeight - (point.percent / 100) * graphHeight;
+        return x.toFixed(1) + "," + y.toFixed(1);
+      }).join(" ");
+      addSvg("polyline", { points: coordinates, fill: "none", stroke: "#1769aa", "stroke-width": "2", "stroke-linejoin": "round", "stroke-linecap": "round" });
+      addSvg("text", { x: left, y: height - 10, fill: "#59636d", "font-size": "11" }, "0s");
+      addSvg("text", { x: width - right, y: height - 10, "text-anchor": "end", fill: "#59636d", "font-size": "11" }, (duration / 1000).toFixed(1) + "s");
+      wrapper.append(svg, element("div", chart.label + " · x-axis: time since page opened · y-axis: page scrolled", "scroll-chart-note"));
+      container.append(wrapper);
+    }
+    function addScrollProfile(container, metric, replayPage) {
       const profile = jsonObject(metric.scrollProfile);
       const events = Number(profile.events) || 0;
       const facts = element("div", undefined, "facts");
       addFact(facts, (metric.scrollDepth || 0) + "%", "deepest depth");
-      addFact(facts, (Number(profile.distancePx) || 0).toLocaleString() + " px", "scroll distance");
       addFact(facts, events, "scroll events");
       addFact(facts, Number(profile.directionChanges) || 0, "direction reversals");
       container.append(facts);
+      renderScrollChart(container, scrollChartPoints(replayPage, profile));
       if (!events) { container.append(element("p", "No movement was recorded on this page.")); return; }
       const lines = element("ul", undefined, "behavior-lines");
       const intervals = (Number(profile.avgIntervalMs) || 0) + " ms average ± " + (Number(profile.intervalStdDevMs) || 0) + " ms";
@@ -1065,10 +1162,16 @@ const adminPage = String.raw`<!DOCTYPE html>
       return event.type;
     }
     function replayPages(visit) {
-      return jsonArray(visit.replay_pages).map((replayPage) => ({
-        ...replayPage,
-        events: jsonArray(replayPage.events).map((event) => ({ ...event, payload: jsonObject(event.payload) }))
-      })).sort((first, second) => String(first.startedAt).localeCompare(String(second.startedAt)));
+      return jsonArray(visit.replay_pages).map((replayPage) => {
+        const legacyEvents = jsonArray(replayPage.events).map((event) => ({ ...event, payload: jsonObject(event.payload) }));
+        const chunkEvents = jsonArray(replayPage.chunks)
+          .sort((first, second) => Number(first.index) - Number(second.index))
+          .flatMap((chunk) => jsonArray(chunk.events))
+          .map((event) => Array.isArray(event) ? {
+            index: event[0], atMs: event[1], type: event[2], payload: jsonObject(event[3])
+          } : { ...event, payload: jsonObject(event.payload) });
+        return { ...replayPage, events: [...legacyEvents, ...chunkEvents] };
+      }).sort((first, second) => String(first.startedAt).localeCompare(String(second.startedAt)));
     }
     function makeReplayUrl(page) {
       const url = new URL(page || "/", "https://gfse18.github.io");
@@ -1219,13 +1322,15 @@ const adminPage = String.raw`<!DOCTYPE html>
       overview.append(element("p", formatTime(visit.first_seen) + " to " + formatTime(visit.last_seen) + " · " + (visit.pageviews || 0) + " views · " + formatDuration(visit.active_seconds) + " active"));
       const pages = appendSection("Pages and scroll behavior");
       const metrics = new Map(jsonArray(visit.page_metrics).map((metric) => [metric.page, metric]));
+      const replayByPage = new Map();
+      for (const replayPage of replayPages(visit)) replayByPage.set(replayPage.page, replayPage);
       const history = summarizePages(visit);
       if (!history.size) pages.append(element("p", "No page history was recorded."));
       for (const [page, count] of history) {
         const pageReport = element("div", undefined, "page-report");
         pageReport.append(element("h4", count > 1 ? page + " ×" + count : page));
         const metric = metrics.get(page);
-        if (metric) { pageReport.append(element("div", formatDuration(metric.activeSeconds) + " active", "secondary")); addScrollProfile(pageReport, metric); }
+        if (metric) { pageReport.append(element("div", formatDuration(metric.activeSeconds) + " active", "secondary")); addScrollProfile(pageReport, metric, replayByPage.get(page)); }
         else pageReport.append(element("p", "No engagement data was recorded for this page."));
         pages.append(pageReport);
       }

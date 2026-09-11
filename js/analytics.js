@@ -6,9 +6,9 @@
   const SCROLL_BURST_GAP_MS = 700;
   const INPUT_SCROLL_WINDOW_MS = 500;
   const MAX_TRAJECTORY_POINTS = 24;
-  const REPLAY_SAMPLE_MS = 100;
-  const MAX_REPLAY_SCROLL_SAMPLES = 560;
-  const MAX_REPLAY_EVENTS = 700;
+  const REPLAY_SAMPLE_MS = 25;
+  const MAX_REPLAY_SCROLL_SAMPLES = 2400;
+  const MAX_REPLAY_EVENTS = 2800;
   // Increment this release ID whenever the published portfolio's visible
   // content changes. It lets the replay identify which site revision it uses.
   const SITE_VERSION = "replay-schema-v1";
@@ -127,6 +127,7 @@
   let lastInputAt = -Infinity;
   let lastPointerMoveAt = -Infinity;
   let replayEventIndex = 0;
+  let replayChunkIndex = 0;
   let replayScrollSamples = 0;
   let lastReplaySampleAt = -Infinity;
   let replayEndTimer = null;
@@ -179,19 +180,32 @@
     if (replayEventIndex >= MAX_REPLAY_EVENTS) return;
     if (isScroll && replayScrollSamples >= MAX_REPLAY_SCROLL_SAMPLES) return;
     if (isScroll) replayScrollSamples += 1;
-    pendingReplayEvents.push({ index: replayEventIndex++, atMs: Math.round(now - pageStartedAt), type, payload });
+    pendingReplayEvents.push([
+      replayEventIndex++,
+      Math.round(now - pageStartedAt),
+      type,
+      payload
+    ]);
   }
 
   function recordReplayScroll(now, force = false) {
     if (!force && now - lastReplaySampleAt < REPLAY_SAMPLE_MS) return;
     lastReplaySampleAt = now;
-    recordReplayEvent("scroll", { scrollY: Math.round(window.scrollY), documentHeight: documentHeight() }, now);
+    recordReplayEvent("scroll", { scrollY: Math.round(window.scrollY) }, now);
   }
 
   function flushReplayEvents() {
     if (!pendingReplayEvents.length) return;
     const events = pendingReplayEvents.splice(0, pendingReplayEvents.length);
-    sendEvent({ eventType: "replay", sessionId, page, pageInstanceId, events });
+    sendEvent({
+      eventType: "replay",
+      sessionId,
+      page,
+      pageInstanceId,
+      chunkIndex: replayChunkIndex++,
+      documentHeight: documentHeight(),
+      events
+    });
   }
 
   sendEvent({
