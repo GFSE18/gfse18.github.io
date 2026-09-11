@@ -66,7 +66,13 @@ export default {
             SELECT json_group_array(json_object(
               'page', metrics.page,
               'activeSeconds', ROUND(metrics.active_seconds, 1),
-              'scrollDepth', metrics.max_scroll_depth
+              'scrollDepth', metrics.max_scroll_depth,
+              'scrollProfile', json(COALESCE((
+                SELECT profiles.profile_json
+                FROM session_page_scroll_profiles AS profiles
+                WHERE profiles.session_id = metrics.session_id
+                  AND profiles.page = metrics.page
+              ), '{}'))
             ))
             FROM session_page_metrics AS metrics
             WHERE metrics.session_id = visits.session_id
@@ -130,6 +136,7 @@ export default {
     if (eventType === "engagement") {
       const activeSeconds = clampNumber(body.activeSeconds, 0, 300);
       const scrollDepth = Math.round(clampNumber(body.scrollDepth, 0, 100));
+      const scrollProfile = normalizeScrollProfile(body.scrollProfile);
 
       await env.DB.prepare(`
         INSERT INTO session_page_metrics (
@@ -150,6 +157,21 @@ export default {
           last_seen = excluded.last_seen
       `)
         .bind(sessionId, page || "", activeSeconds, scrollDepth, now)
+        .run();
+
+      await env.DB.prepare(`
+        INSERT INTO session_page_scroll_profiles (
+          session_id,
+          page,
+          profile_json,
+          updated_at
+        )
+        VALUES (?1, ?2, ?3, ?4)
+        ON CONFLICT(session_id, page) DO UPDATE SET
+          profile_json = excluded.profile_json,
+          updated_at = excluded.updated_at
+      `)
+        .bind(sessionId, page || "", JSON.stringify(scrollProfile), now)
         .run();
 
       return new Response(null, { status: 204, headers: corsHeaders });
@@ -300,6 +322,47 @@ function clampNumber(value, minimum, maximum) {
   const number = Number(value);
   if (!Number.isFinite(number)) return minimum;
   return Math.min(maximum, Math.max(minimum, number));
+}
+
+function normalizeScrollProfile(value) {
+  const profile = value && typeof value === "object" ? value : {};
+  const integer = (name, maximum) =>
+    Math.round(clampNumber(profile[name], 0, maximum));
+  const decimal = (name, maximum) =>
+    Math.round(clampNumber(profile[name], 0, maximum) * 100) / 100;
+  const trajectory = Array.isArray(profile.trajectory)
+    ? profile.trajectory
+        .slice(-24)
+        .map((point) => Array.isArray(point) ? [
+          integerFrom(point[0], 0, 30 * 60 * 1000),
+          integerFrom(point[1], 0, 100)
+        ] : null)
+        .filter(Boolean)
+    : [];
+
+  return {
+    events: integer("events", 10000),
+    bursts: integer("bursts", 1000),
+    directionChanges: integer("directionChanges", 1000),
+    distancePx: integer("distancePx", 10000000),
+    avgIntervalMs: integer("avgIntervalMs", 300000),
+    intervalStdDevMs: integer("intervalStdDevMs", 300000),
+    avgVelocityPxPerSecond: integer("avgVelocityPxPerSecond", 1000000),
+    velocityVariation: decimal("velocityVariation", 1000),
+    pauses500Ms: integer("pauses500Ms", 1000),
+    pauses2000Ms: integer("pauses2000Ms", 1000),
+    wheelEvents: integer("wheelEvents", 10000),
+    touchEvents: integer("touchEvents", 10000),
+    keyScrollEvents: integer("keyScrollEvents", 10000),
+    pointerMoves: integer("pointerMoves", 10000),
+    pointerClicks: integer("pointerClicks", 1000),
+    inputLinkedScrolls: integer("inputLinkedScrolls", 10000),
+    trajectory
+  };
+}
+
+function integerFrom(value, minimum, maximum) {
+  return Math.round(clampNumber(value, minimum, maximum));
 }
 
 function inferDeviceType(userAgent) {
@@ -652,10 +715,28 @@ const adminPage = String.raw`<!DOCTYPE html>
     td { padding: 12px; border-bottom: 1px solid #eee; vertical-align: top; }
     tr:hover { background: #fafafa; }
     .mono { font-family: monospace; font-size: 13px; }
-    .pages { min-width: 220px; }
-    .pages div + div { margin-top: 4px; }
-    .secondary { color: #666; font-family: Arial, sans-serif; font-size: 12px; }
-    .refresh { margin-bottom: 16px; padding: 8px 14px; cursor: pointer; }
+    .secondary { color: #666; font-size: 12px; }
+    button { font: inherit; }
+    .refresh, .report-button, .close { padding: 8px 14px; cursor: pointer; }
+    .refresh { margin-bottom: 16px; }
+    .report-button { border: 1px solid #777; background: white; border-radius: 5px; white-space: nowrap; }
+    dialog { width: min(760px, calc(100vw - 32px)); max-height: min(820px, calc(100vh - 48px)); border: 0; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,.3); padding: 0; color: #222; }
+    dialog::backdrop { background: rgba(0,0,0,.42); }
+    .report-header { display: flex; gap: 16px; align-items: center; justify-content: space-between; padding: 20px 24px; border-bottom: 1px solid #e5e5e5; }
+    .report-header h2 { margin: 0; }
+    .close { border: 1px solid #999; border-radius: 5px; background: white; }
+    .report-content { padding: 0 24px 24px; }
+    .report-section { padding: 20px 0; border-bottom: 1px solid #e9e9e9; }
+    .report-section:last-child { border-bottom: 0; }
+    .report-section h3 { margin: 0 0 10px; font-size: 16px; }
+    .page-report + .page-report { border-top: 1px solid #eee; margin-top: 18px; padding-top: 18px; }
+    .page-report h4 { margin: 0 0 8px; font-family: monospace; font-size: 14px; }
+    .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin: 12px 0; }
+    .fact { background: #f6f7f8; border-radius: 6px; padding: 9px; font-size: 13px; }
+    .fact strong { display: block; font-size: 15px; margin-bottom: 2px; }
+    .behavior-lines { margin: 0; padding-left: 18px; line-height: 1.5; }
+    .trajectory { margin-top: 10px; font-size: 12px; line-height: 1.5; word-break: break-word; }
+    .referrer { overflow-wrap: anywhere; }
   </style>
 </head>
 <body>
@@ -667,42 +748,29 @@ const adminPage = String.raw`<!DOCTYPE html>
       <table>
         <thead>
           <tr>
-            <th>First seen</th>
-            <th>Last seen</th>
-            <th>Views</th>
-            <th>Active time</th>
-            <th>Device</th>
-            <th>City</th>
-            <th>State</th>
-            <th>Country</th>
-            <th>IP</th>
-            <th>Pages &amp; scroll</th>
-            <th>Tracked clicks</th>
-            <th>Entry referrer</th>
+            <th>First seen</th><th>Last seen</th><th>Views</th><th>Active time</th>
+            <th>Device</th><th>City</th><th>State</th><th>Country</th><th>IP</th><th>Session report</th>
           </tr>
         </thead>
-        <tbody id="visits"><tr><td colspan="12">Loading...</td></tr></tbody>
+        <tbody id="visits"><tr><td colspan="10">Loading...</td></tr></tbody>
       </table>
     </div>
   </div>
+  <dialog id="session-report" aria-labelledby="report-title">
+    <div class="report-header"><h2 id="report-title">Session report</h2><button class="close" id="close-report" type="button">Close</button></div>
+    <div class="report-content" id="report-content"></div>
+  </dialog>
   <script>
     const tbody = document.getElementById("visits");
+    const reportDialog = document.getElementById("session-report");
+    const reportContent = document.getElementById("report-content");
     document.getElementById("refresh").addEventListener("click", loadVisits);
+    document.getElementById("close-report").addEventListener("click", () => reportDialog.close());
 
     function formatTime(value) {
       if (!value) return "";
-      return new Date(value).toLocaleString("en-US", {
-        timeZone: "America/New_York",
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-        second: "2-digit",
-        timeZoneName: "short"
-      });
+      return new Date(value).toLocaleString("en-US", { timeZone: "America/New_York", year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", timeZoneName: "short" });
     }
-
     function cell(row, value, className = "") {
       const td = document.createElement("td");
       td.textContent = value ?? "";
@@ -710,130 +778,108 @@ const adminPage = String.raw`<!DOCTYPE html>
       row.appendChild(td);
       return td;
     }
-
+    function element(tag, text, className = "") {
+      const node = document.createElement(tag);
+      if (text !== undefined) node.textContent = text;
+      if (className) node.className = className;
+      return node;
+    }
     function pageHistory(visit) {
-      if (visit.pages) {
-        try {
-          const parsed = JSON.parse(visit.pages);
-          if (Array.isArray(parsed)) return parsed;
-        } catch {}
-      }
+      if (visit.pages) { try { const parsed = JSON.parse(visit.pages); if (Array.isArray(parsed)) return parsed; } catch {} }
       return visit.last_page ? [visit.last_page] : [];
     }
-
     function summarizePages(visit) {
       const counts = new Map();
-      for (const page of pageHistory(visit)) {
-        const label = page ?? "";
-        counts.set(label, (counts.get(label) ?? 0) + 1);
-      }
+      for (const page of pageHistory(visit)) { const label = page ?? ""; counts.set(label, (counts.get(label) ?? 0) + 1); }
       return counts;
     }
-
     function jsonArray(value) {
       if (!value) return [];
-      try {
-        const parsed = JSON.parse(value);
-        return Array.isArray(parsed) ? parsed : [];
-      } catch {
-        return [];
-      }
+      try { const parsed = typeof value === "string" ? JSON.parse(value) : value; return Array.isArray(parsed) ? parsed : []; } catch { return []; }
     }
-
+    function jsonObject(value) {
+      if (!value) return {};
+      try { const parsed = typeof value === "string" ? JSON.parse(value) : value; return parsed && typeof parsed === "object" ? parsed : {}; } catch { return {}; }
+    }
     function formatDuration(value) {
-      const seconds = Math.max(0, Math.round(Number(value) || 0));
-      const minutes = Math.floor(seconds / 60);
-      const remainder = seconds % 60;
+      const seconds = Math.max(0, Math.round(Number(value) || 0)); const minutes = Math.floor(seconds / 60); const remainder = seconds % 60;
       return minutes ? minutes + "m " + remainder + "s" : remainder + "s";
     }
-
-    function actionName(value) {
-      return {
-        resume_open: "Resume opened",
-        email_click: "Email clicked",
-        github_click: "GitHub clicked"
-      }[value] || value || "Unknown action";
+    function actionName(value) { return { resume_open: "Resume opened", email_click: "Email clicked", github_click: "GitHub clicked" }[value] || value || "Unknown action"; }
+    function addFact(container, value, label) {
+      const fact = element("div", undefined, "fact"); fact.append(element("strong", value)); fact.append(element("span", label)); container.append(fact);
     }
-
-    async function loadVisits() {
-      tbody.replaceChildren();
-      const loading = document.createElement("tr");
-      cell(loading, "Loading...").colSpan = 12;
-      tbody.appendChild(loading);
-
-      try {
-        const response = await fetch("/admin-data", { cache: "no-store" });
-        if (!response.ok) throw new Error("Could not load analytics");
-        const visits = await response.json();
-        tbody.replaceChildren();
-
-        for (const visit of visits) {
-          const row = document.createElement("tr");
-          cell(row, formatTime(visit.first_seen));
-          cell(row, formatTime(visit.last_seen));
-          cell(row, visit.pageviews);
-          cell(row, formatDuration(visit.active_seconds));
-          cell(row, visit.device_type ? visit.device_type[0].toUpperCase() + visit.device_type.slice(1) : "Unknown");
-          cell(row, visit.city);
-          cell(row, visit.region);
-          cell(row, visit.country);
-          cell(row, visit.ip, "mono");
-
-          const pagesCell = cell(row, "", "pages mono");
-          const metrics = new Map(
-            jsonArray(visit.page_metrics).map((metric) => [metric.page, metric])
-          );
-          for (const [page, count] of summarizePages(visit)) {
-            const item = document.createElement("div");
-            item.textContent = count > 1 ? page + " ×" + count : page;
-            pagesCell.appendChild(item);
-
-            const metric = metrics.get(page);
-            if (metric) {
-              const details = document.createElement("div");
-              details.className = "secondary";
-              details.textContent =
-                formatDuration(metric.activeSeconds) +
-                " active · " +
-                metric.scrollDepth +
-                "% scroll";
-              pagesCell.appendChild(details);
-            }
-          }
-
-          const actionsCell = cell(row, "");
-          const actionCounts = new Map();
-          for (const action of jsonArray(visit.actions)) {
-            const label = actionName(action.action);
-            actionCounts.set(label, (actionCounts.get(label) ?? 0) + (Number(action.count) || 1));
-          }
-          if (actionCounts.size === 0) {
-            actionsCell.textContent = "—";
-          } else {
-            for (const [label, count] of actionCounts) {
-              const item = document.createElement("div");
-              item.textContent = count > 1 ? label + " ×" + count : label;
-              actionsCell.appendChild(item);
-            }
-          }
-
-          cell(row, visit.referrer);
-          tbody.appendChild(row);
-        }
-
-        if (visits.length === 0) {
-          const empty = document.createElement("tr");
-          cell(empty, "No visits yet.").colSpan = 12;
-          tbody.appendChild(empty);
-        }
-      } catch (error) {
-        tbody.replaceChildren();
-        const failed = document.createElement("tr");
-        cell(failed, error.message).colSpan = 12;
-        tbody.appendChild(failed);
+    function addScrollProfile(container, metric) {
+      const profile = jsonObject(metric.scrollProfile);
+      const events = Number(profile.events) || 0;
+      const facts = element("div", undefined, "facts");
+      addFact(facts, (metric.scrollDepth || 0) + "%", "deepest depth");
+      addFact(facts, (Number(profile.distancePx) || 0).toLocaleString() + " px", "scroll distance");
+      addFact(facts, events, "scroll events");
+      addFact(facts, Number(profile.directionChanges) || 0, "direction reversals");
+      container.append(facts);
+      if (!events) { container.append(element("p", "No movement was recorded on this page.")); return; }
+      const lines = element("ul", undefined, "behavior-lines");
+      const intervals = (Number(profile.avgIntervalMs) || 0) + " ms average ± " + (Number(profile.intervalStdDevMs) || 0) + " ms";
+      const velocity = (Number(profile.avgVelocityPxPerSecond) || 0).toLocaleString() + " px/s average; " + Math.round((Number(profile.velocityVariation) || 0) * 100) + "% variation";
+      const physicalInputs = (Number(profile.wheelEvents) || 0) + (Number(profile.touchEvents) || 0) + (Number(profile.keyScrollEvents) || 0);
+      lines.append(element("li", (Number(profile.bursts) || 0) + " scroll bursts; timing: " + intervals));
+      lines.append(element("li", "velocity: " + velocity));
+      lines.append(element("li", "pauses: " + (Number(profile.pauses500Ms) || 0) + " ≥ 0.5 s; " + (Number(profile.pauses2000Ms) || 0) + " ≥ 2 s"));
+      lines.append(element("li", "input: " + (Number(profile.wheelEvents) || 0) + " wheel, " + (Number(profile.touchEvents) || 0) + " touch, " + (Number(profile.keyScrollEvents) || 0) + " keyboard; " + (Number(profile.inputLinkedScrolls) || 0) + "/" + events + " scrolls linked to recent input"));
+      lines.append(element("li", (Number(profile.pointerMoves) || 0) + " sampled pointer moves; " + (Number(profile.pointerClicks) || 0) + " clicks; " + physicalInputs + " total scroll-input events"));
+      container.append(lines);
+      const trajectory = jsonArray(profile.trajectory);
+      if (trajectory.length) {
+        const details = element("details", undefined, "trajectory");
+        details.append(element("summary", "Scroll trajectory (" + trajectory.length + " sampled points)"));
+        details.append(element("div", trajectory.map((point) => ((Number(point[0]) || 0) / 1000).toFixed(1) + "s: " + (Number(point[1]) || 0) + "%").join("  →  "), "mono"));
+        container.append(details);
       }
     }
-
+    function appendSection(title) { const section = element("section", undefined, "report-section"); section.append(element("h3", title)); reportContent.append(section); return section; }
+    function showReport(visit) {
+      reportContent.replaceChildren();
+      const overview = appendSection("Session overview");
+      overview.append(element("p", formatTime(visit.first_seen) + " to " + formatTime(visit.last_seen) + " · " + (visit.pageviews || 0) + " views · " + formatDuration(visit.active_seconds) + " active"));
+      const pages = appendSection("Pages and scroll behavior");
+      const metrics = new Map(jsonArray(visit.page_metrics).map((metric) => [metric.page, metric]));
+      const history = summarizePages(visit);
+      if (!history.size) pages.append(element("p", "No page history was recorded."));
+      for (const [page, count] of history) {
+        const pageReport = element("div", undefined, "page-report");
+        pageReport.append(element("h4", count > 1 ? page + " ×" + count : page));
+        const metric = metrics.get(page);
+        if (metric) { pageReport.append(element("div", formatDuration(metric.activeSeconds) + " active", "secondary")); addScrollProfile(pageReport, metric); }
+        else pageReport.append(element("p", "No engagement data was recorded for this page."));
+        pages.append(pageReport);
+      }
+      const clicks = appendSection("Tracked clicks");
+      const actionCounts = new Map();
+      for (const action of jsonArray(visit.actions)) { const label = actionName(action.action); actionCounts.set(label, (actionCounts.get(label) ?? 0) + (Number(action.count) || 1)); }
+      if (!actionCounts.size) clicks.append(element("p", "No tracked clicks."));
+      for (const [label, count] of actionCounts) clicks.append(element("div", count > 1 ? label + " ×" + count : label));
+      const referrer = appendSection("Entry referrer");
+      referrer.append(element("div", visit.referrer || "Direct visit or no referrer supplied.", "referrer mono"));
+      reportDialog.showModal();
+    }
+    async function loadVisits() {
+      tbody.replaceChildren(); const loading = document.createElement("tr"); cell(loading, "Loading...").colSpan = 10; tbody.appendChild(loading);
+      try {
+        const response = await fetch("/admin-data", { cache: "no-store" }); if (!response.ok) throw new Error("Could not load analytics");
+        const visits = await response.json(); tbody.replaceChildren();
+        for (const visit of visits) {
+          const row = document.createElement("tr");
+          cell(row, formatTime(visit.first_seen)); cell(row, formatTime(visit.last_seen)); cell(row, visit.pageviews); cell(row, formatDuration(visit.active_seconds));
+          cell(row, visit.device_type ? visit.device_type[0].toUpperCase() + visit.device_type.slice(1) : "Unknown"); cell(row, visit.city); cell(row, visit.region); cell(row, visit.country); cell(row, visit.ip, "mono");
+          const reportCell = cell(row, ""); const button = element("button", "View report", "report-button"); button.type = "button"; button.addEventListener("click", () => showReport(visit)); reportCell.append(button);
+          tbody.appendChild(row);
+        }
+        if (!visits.length) { const empty = document.createElement("tr"); cell(empty, "No visits yet.").colSpan = 10; tbody.appendChild(empty); }
+      } catch (error) {
+        tbody.replaceChildren(); const failed = document.createElement("tr"); cell(failed, error.message).colSpan = 10; tbody.appendChild(failed);
+      }
+    }
     loadVisits();
   </script>
 </body>

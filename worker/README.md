@@ -28,7 +28,9 @@ view. That row shows:
 The updated tracker also records:
 
 - active reading time while the page is visible and the browser is focused;
-- the deepest percentage scrolled on each page;
+- a compact scroll-behavior profile on each page: movement distance, bursts,
+  timing variation, direction reversals, pauses, velocity variation, physical
+  input correlation, and a small sampled trajectory;
 - desktop, mobile, or tablet device type; and
 - résumé, email, and GitHub link clicks.
 
@@ -45,6 +47,9 @@ The data stays grouped around the same session ID:
 - `session_page_metrics` keeps one summary row for each page viewed during that
   session. New reading-time updates are added to its active-seconds total, and
   only the deepest scroll percentage is kept.
+- `session_page_scroll_profiles` keeps the current compact behavior profile for
+  each viewed page. It deliberately stores a maximum of 24 trajectory samples,
+  not a raw record of every scroll event.
 - `session_actions` keeps one summary row for each kind of tracked click during
   the session. Repeated clicks increase a counter instead of creating a new row
   every time.
@@ -58,6 +63,7 @@ session. It does not show engagement updates as separate visits.
 | --- | --- |
 | `worker/migration-session-grouping.sql` | Original session migration; do not run it again if session grouping already works |
 | `worker/migration-engagement-metrics.sql` | Run once in D1 to add reading, scrolling, device, and click storage |
+| `worker/migration-scroll-behavior.sql` | Run once in D1 to add detailed scroll-behavior storage |
 | `worker/index.js` | Replace the current code in your Cloudflare Worker |
 | `js/analytics.js` | Keep this file in your GitHub Pages website repository |
 
@@ -86,6 +92,15 @@ migration may already have been applied.
 
 You already ran `migration-session-grouping.sql` when session grouping was set
 up. Do not run that older migration again.
+
+### Add the detailed scroll-behavior table
+
+1. In the same D1 Console, open `worker/migration-scroll-behavior.sql`.
+2. Copy its contents into the console and select **Execute**.
+
+Run this migration only once. It only adds a new table, so all existing visit
+and engagement data remains unchanged. Older sessions will simply show no
+scroll profile in the report window.
 
 Cloudflare automatically keeps D1 recovery history through Time Travel, so you
 can restore the database if a database change goes wrong.
@@ -161,8 +176,9 @@ You should see one new row with:
 - the home page and projects page listed under **Pages**;
 - an **Active time** value;
 - a desktop, mobile, or tablet **Device** value;
-- reading time and scroll depth beside the page; and
-- the click under **Tracked clicks**;
+- an individual **View report** button for the session;
+- pages, reading time, detailed scroll behavior, tracked clicks, and entry
+  referrer inside the report window; and
 - an earlier **First seen** time; and
 - a later **Last seen** time.
 
@@ -261,12 +277,14 @@ cannot send to a different address.
   `Ctrl+F5`.
 - Confirm the Worker code was deployed, not merely saved in the editor.
 
-### The Worker reports a missing column
+### The Worker reports a missing table or column
 
-The D1 migration was not completed. Return to Step 1 and run
-`migration-engagement-metrics.sql` in the correct database. If the error names
-an older session column such as `session_id`, the original
-`migration-session-grouping.sql` was not completed.
+The applicable D1 migration was not completed. Return to Step 1 and run
+`migration-scroll-behavior.sql` for an error mentioning
+`session_page_scroll_profiles`, or `migration-engagement-metrics.sql` for an
+older engagement table or column. If the error names an older session column
+such as `session_id`, the original `migration-session-grouping.sql` was not
+completed.
 
 ### D1 says "Requests without any query are not supported"
 

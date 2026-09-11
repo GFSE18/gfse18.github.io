@@ -3,6 +3,9 @@
   const SESSION_KEY = "portfolio_analytics_session";
   const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
   const ENGAGEMENT_FLUSH_MS = 15 * 1000;
+  const SCROLL_BURST_GAP_MS = 700;
+  const INPUT_SCROLL_WINDOW_MS = 500;
+  const MAX_TRAJECTORY_POINTS = 24;
 
   function createSessionId() {
     if (typeof crypto.randomUUID === "function") {
@@ -107,6 +110,86 @@
   let unsentActiveSeconds = 0;
   let maxScrollDepth = currentScrollDepth();
   let lastSentScrollDepth = -1;
+  let lastSentScrollEvents = -1;
+  const pageStartedAt = performance.now();
+  let lastScrollAt = null;
+  let lastScrollY = window.scrollY;
+  let lastScrollDirection = 0;
+  let lastInputAt = -Infinity;
+  let lastPointerMoveAt = -Infinity;
+  const scrollProfile = {
+    events: 0,
+    bursts: 0,
+    directionChanges: 0,
+    distancePx: 0,
+    intervals: [],
+    velocities: [],
+    pauses500Ms: 0,
+    pauses2000Ms: 0,
+    wheelEvents: 0,
+    touchEvents: 0,
+    keyScrollEvents: 0,
+    pointerMoves: 0,
+    pointerClicks: 0,
+    inputLinkedScrolls: 0,
+    trajectory: [[0, maxScrollDepth]]
+  };
+
+  function average(values) {
+    if (!values.length) return 0;
+    return values.reduce((sum, value) => sum + value, 0) / values.length;
+  }
+
+  function standardDeviation(values) {
+    if (values.length < 2) return 0;
+    const mean = average(values);
+    return Math.sqrt(
+      average(values.map((value) => (value - mean) ** 2))
+    );
+  }
+
+  function rememberTrajectory(now, depth) {
+    const point = [
+      Math.round(now - pageStartedAt),
+      Math.round(depth)
+    ];
+    const lastPoint = scrollProfile.trajectory[scrollProfile.trajectory.length - 1];
+    if (lastPoint && point[0] - lastPoint[0] < SCROLL_BURST_GAP_MS) {
+      scrollProfile.trajectory[scrollProfile.trajectory.length - 1] = point;
+    } else {
+      scrollProfile.trajectory.push(point);
+      if (scrollProfile.trajectory.length > MAX_TRAJECTORY_POINTS) {
+        scrollProfile.trajectory.shift();
+      }
+    }
+  }
+
+  function snapshotScrollProfile() {
+    const averageIntervalMs = average(scrollProfile.intervals);
+    const averageVelocity = average(scrollProfile.velocities);
+
+    return {
+      events: scrollProfile.events,
+      bursts: scrollProfile.bursts,
+      directionChanges: scrollProfile.directionChanges,
+      distancePx: Math.round(scrollProfile.distancePx),
+      avgIntervalMs: Math.round(averageIntervalMs),
+      intervalStdDevMs: Math.round(standardDeviation(scrollProfile.intervals)),
+      avgVelocityPxPerSecond: Math.round(averageVelocity),
+      velocityVariation: averageVelocity
+        ? Math.round((standardDeviation(scrollProfile.velocities) / averageVelocity) * 100) / 100
+        : 0,
+      pauses500Ms: scrollProfile.pauses500Ms,
+      pauses2000Ms: scrollProfile.pauses2000Ms,
+      wheelEvents: scrollProfile.wheelEvents,
+      touchEvents: scrollProfile.touchEvents,
+      keyScrollEvents: scrollProfile.keyScrollEvents,
+      pointerMoves: scrollProfile.pointerMoves,
+      pointerClicks: scrollProfile.pointerClicks,
+      inputLinkedScrolls: scrollProfile.inputLinkedScrolls,
+      trajectory: scrollProfile.trajectory
+    };
+  }
 
   sendEvent({
     eventType: "pageview",
@@ -137,17 +220,22 @@
     stopActiveTimer();
     const activeSeconds = Math.round(unsentActiveSeconds * 10) / 10;
     const scrollDepth = maxScrollDepth;
-    const hasUpdate = activeSeconds > 0 || scrollDepth > lastSentScrollDepth;
+    const hasUpdate =
+      activeSeconds > 0 ||
+      scrollDepth > lastSentScrollDepth ||
+      scrollProfile.events > lastSentScrollEvents;
 
     if (hasUpdate) {
       unsentActiveSeconds = 0;
       lastSentScrollDepth = scrollDepth;
+      lastSentScrollEvents = scrollProfile.events;
       sendEvent({
         eventType: "engagement",
         sessionId,
         page,
         activeSeconds,
-        scrollDepth
+        scrollDepth,
+        scrollProfile: snapshotScrollProfile()
       });
     }
 
@@ -157,6 +245,7 @@
   document.addEventListener(
     "click",
     (event) => {
+      scrollProfile.pointerClicks += 1;
       const link = event.target.closest?.("a[href]");
       if (!link) return;
 
@@ -175,7 +264,63 @@
   );
 
   window.addEventListener("scroll", () => {
-    maxScrollDepth = Math.max(maxScrollDepth, currentScrollDepth());
+    const now = performance.now();
+    const scrollY = window.scrollY;
+    const deltaY = scrollY - lastScrollY;
+    const distance = Math.abs(deltaY);
+    const depth = currentScrollDepth();
+    maxScrollDepth = Math.max(maxScrollDepth, depth);
+
+    if (distance > 0) {
+      scrollProfile.events += 1;
+      scrollProfile.distancePx += distance;
+
+      if (now - lastInputAt <= INPUT_SCROLL_WINDOW_MS) {
+        scrollProfile.inputLinkedScrolls += 1;
+      }
+
+      if (lastScrollAt === null || now - lastScrollAt > SCROLL_BURST_GAP_MS) {
+        scrollProfile.bursts += 1;
+      } else {
+        const interval = now - lastScrollAt;
+        scrollProfile.intervals.push(interval);
+        scrollProfile.velocities.push((distance / interval) * 1000);
+        if (interval >= 500) scrollProfile.pauses500Ms += 1;
+        if (interval >= 2000) scrollProfile.pauses2000Ms += 1;
+      }
+
+      const direction = Math.sign(deltaY);
+      if (lastScrollDirection && direction !== lastScrollDirection) {
+        scrollProfile.directionChanges += 1;
+      }
+
+      lastScrollDirection = direction;
+      lastScrollAt = now;
+      lastScrollY = scrollY;
+      rememberTrajectory(now, depth);
+    }
+  }, { passive: true });
+
+  window.addEventListener("wheel", () => {
+    scrollProfile.wheelEvents += 1;
+    lastInputAt = performance.now();
+  }, { passive: true });
+  window.addEventListener("touchmove", () => {
+    scrollProfile.touchEvents += 1;
+    lastInputAt = performance.now();
+  }, { passive: true });
+  window.addEventListener("keydown", (event) => {
+    if ([" ", "ArrowDown", "ArrowUp", "PageDown", "PageUp", "Home", "End"].includes(event.key)) {
+      scrollProfile.keyScrollEvents += 1;
+      lastInputAt = performance.now();
+    }
+  }, { passive: true });
+  window.addEventListener("pointermove", () => {
+    const now = performance.now();
+    if (now - lastPointerMoveAt >= 250) {
+      scrollProfile.pointerMoves += 1;
+      lastPointerMoveAt = now;
+    }
   }, { passive: true });
   window.addEventListener("focus", startActiveTimer);
   window.addEventListener("blur", flushEngagement);
