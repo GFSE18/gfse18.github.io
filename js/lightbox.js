@@ -36,6 +36,16 @@ document.addEventListener("DOMContentLoaded", () => {
      OPEN / CLOSE
      ========================================= */
 
+  function imageIdentifier(image) {
+    const source = image.currentSrc || image.src || "";
+    try {
+      const url = new URL(source, window.location.href);
+      return url.pathname + url.search;
+    } catch {
+      return source;
+    }
+  }
+
   function openLightbox(image) {
     lastFocusedElement = document.activeElement;
 
@@ -46,6 +56,15 @@ document.addEventListener("DOMContentLoaded", () => {
     lightbox.setAttribute("aria-hidden", "false");
     document.body.classList.add("lightbox-open");
 
+    document.dispatchEvent(new CustomEvent("portfolio:lightbox", {
+      detail: {
+        type: "lightbox_open",
+        imageSrc: imageIdentifier(image),
+        imageAlt: image.alt || "",
+        galleryIndex: Array.from(images).indexOf(image)
+      }
+    }));
+
     closeButton.focus();
   }
 
@@ -53,6 +72,10 @@ document.addEventListener("DOMContentLoaded", () => {
     lightbox.classList.remove("is-open");
     lightbox.setAttribute("aria-hidden", "true");
     document.body.classList.remove("lightbox-open");
+
+    document.dispatchEvent(new CustomEvent("portfolio:lightbox", {
+      detail: { type: "lightbox_close" }
+    }));
 
     setTimeout(() => {
       if (!lightbox.classList.contains("is-open")) {
@@ -103,6 +126,24 @@ document.addEventListener("DOMContentLoaded", () => {
         openLightbox(image);
       }
     });
+  });
+
+  document.addEventListener("portfolio:replay-lightbox", (event) => {
+    const command = event.detail || {};
+    if (command.type === "lightbox_close") {
+      closeLightbox();
+      return;
+    }
+
+    if (command.type !== "lightbox_open") return;
+    const requestedSource = command.imageSrc || "";
+    const image = Array.from(images).find(
+      (candidate) => imageIdentifier(candidate) === requestedSource
+    );
+
+    if (image) {
+      openLightbox(image);
+    }
   });
 
   /* =========================================

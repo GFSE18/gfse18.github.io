@@ -28,9 +28,28 @@ view. That row shows:
 The updated tracker also records:
 
 - active reading time while the page is visible and the browser is focused;
-- the deepest percentage scrolled on each page;
+- a compact scroll-behavior profile on each page: movement distance, bursts,
+  timing variation, direction reversals, pauses, velocity variation, physical
+  input correlation, and a small sampled trajectory;
 - desktop, mobile, or tablet device type; and
 - résumé, email, and GitHub link clicks.
+
+For new sessions, it also records a lightweight simulated-replay timeline:
+
+- rounded viewport width and height;
+- timestamped vertical scroll positions, sampled at most every 100 ms while
+  the page is moving;
+- up to 560 scroll samples and 700 total replay events per page;
+- internal-page navigation, tracked-link actions, and lightbox open/close
+  events; and
+- the exact portfolio image path and caption for a lightbox opening.
+
+The replay is an interactive approximation inside the admin report. It is not
+a screen recording and never captures screenshots, typed text, form content,
+or pointer coordinates.
+
+Detailed replay chunks are automatically removed after 60 days by the existing
+daily Worker schedule. The normal session summary remains stored.
 
 This is an anonymous browser session, not proof of a person's identity. A
 different browser, private window, device, or cleared browser storage creates a
@@ -45,9 +64,16 @@ The data stays grouped around the same session ID:
 - `session_page_metrics` keeps one summary row for each page viewed during that
   session. New reading-time updates are added to its active-seconds total, and
   only the deepest scroll percentage is kept.
+- `session_page_scroll_profiles` keeps the current compact behavior profile for
+  each viewed page. It deliberately stores a maximum of 24 trajectory samples,
+  not a raw record of every scroll event.
 - `session_actions` keeps one summary row for each kind of tracked click during
   the session. Repeated clicks increase a counter instead of creating a new row
   every time.
+- `session_replay_pages` records each distinct page visit with its approximate
+  viewport and site release ID. `session_replay_chunks` stores the compact
+  scroll/action timeline in 15-second JSON chunks, so one minute of replay
+  normally creates four writes instead of thousands of individual event rows.
 
 The admin page combines these tables back into one displayed row per visitor
 session. It does not show engagement updates as separate visits.
@@ -58,8 +84,12 @@ session. It does not show engagement updates as separate visits.
 | --- | --- |
 | `worker/migration-session-grouping.sql` | Original session migration; do not run it again if session grouping already works |
 | `worker/migration-engagement-metrics.sql` | Run once in D1 to add reading, scrolling, device, and click storage |
+| `worker/migration-scroll-behavior.sql` | Run once in D1 to add detailed scroll-behavior storage |
+| `worker/migration-session-replay.sql` | Run once in D1 to add simulated-replay storage |
+| `worker/migration-replay-chunks.sql` | Run once in D1 to store replay uploads as compact chunks |
 | `worker/index.js` | Replace the current code in your Cloudflare Worker |
-| `js/analytics.js` | Keep this file in your GitHub Pages website repository |
+| `js/analytics.js` | Tracks sessions and supplies the replay-mode page viewer |
+| `js/lightbox.js` | Records the exact portfolio image opened in a lightbox and opens it during replay |
 
 Complete the following steps in order.
 
@@ -87,6 +117,33 @@ migration may already have been applied.
 You already ran `migration-session-grouping.sql` when session grouping was set
 up. Do not run that older migration again.
 
+### Add the detailed scroll-behavior table
+
+1. In the same D1 Console, open `worker/migration-scroll-behavior.sql`.
+2. Copy its contents into the console and select **Execute**.
+
+Run this migration only once. It only adds a new table, so all existing visit
+and engagement data remains unchanged. Older sessions will simply show no
+scroll profile in the report window.
+
+### Add the simulated-replay tables
+
+1. In the same D1 Console, open `worker/migration-session-replay.sql`.
+2. Copy its contents into the console and select **Execute**.
+
+Run this migration only once. It adds the replay tables without changing old
+visit records. Reports for old sessions will keep their summary but will say
+that replay data is unavailable.
+
+### Add compact replay-chunk storage
+
+1. In the same D1 Console, open `worker/migration-replay-chunks.sql`.
+2. Copy its contents into the console and select **Execute**.
+
+Run this migration once before deploying the latest Worker. It changes new
+replay storage from one database row per scroll event to one row per uploaded
+chunk. Existing early replay records remain readable.
+
 Cloudflare automatically keeps D1 recovery history through Time Travel, so you
 can restore the database if a database change goes wrong.
 
@@ -103,7 +160,7 @@ can restore the database if a database change goes wrong.
 7. Select **Deploy**.
 8. Wait until Cloudflare says the deployment succeeded.
 
-Do not paste either SQL migration into the Worker editor. The Worker editor
+Do not paste any SQL migration into the Worker editor. The Worker editor
 receives only the contents of `worker/index.js`.
 
 ### Check the database connection
@@ -120,12 +177,18 @@ The capitalization matters: the code expects `DB`, not `db`.
 
 ## Step 3: Publish the website tracking file
 
-The file `js/analytics.js` in this website folder has already been updated. It
-creates the session ID and sends it to the Worker.
+The files `js/analytics.js` and `js/lightbox.js` in this website folder have
+already been updated. They create the session ID, capture the replay timeline,
+and record exact lightbox images.
 
 Publish the website to GitHub Pages the same way you normally publish changes.
 For example, commit and push the updated `js/analytics.js` file to the GitHub
 branch used by GitHub Pages.
+
+Before a later release that changes the portfolio's visible pages or images,
+increment the `SITE_VERSION` value near the top of `js/analytics.js`. This is a
+small release identifier (for example, `2026-09-project-update`) shown in the
+replay so you know which published portfolio revision it represents.
 
 If you edit the GitHub repository through the GitHub website instead:
 
@@ -161,8 +224,15 @@ You should see one new row with:
 - the home page and projects page listed under **Pages**;
 - an **Active time** value;
 - a desktop, mobile, or tablet **Device** value;
-- reading time and scroll depth beside the page; and
-- the click under **Tracked clicks**;
+- an individual **View report** button for the session;
+- pages, reading time, detailed scroll behavior, tracked clicks, and entry
+  referrer inside the report window; and
+- a **Replay** tab. Select a visited page, then use Play, the timeline scrubber,
+  or the speed control to animate the recorded scroll and lightbox events.
+
+The summary view also draws a percentage-over-time scroll graph for each page.
+Its x-axis is elapsed time from the page opening and its y-axis is the visitor's
+scroll position as a percentage of the scrollable page.
 - an earlier **First seen** time; and
 - a later **Last seen** time.
 
@@ -261,11 +331,14 @@ cannot send to a different address.
   `Ctrl+F5`.
 - Confirm the Worker code was deployed, not merely saved in the editor.
 
-### The Worker reports a missing column
+### The Worker reports a missing table or column
 
-The D1 migration was not completed. Return to Step 1 and run
-`migration-engagement-metrics.sql` in the correct database. If the error names
-an older session column such as `session_id`, the original
+The applicable D1 migration was not completed. Return to Step 1 and run
+`migration-scroll-behavior.sql` for an error mentioning
+`session_page_scroll_profiles`, `migration-session-replay.sql` for an error
+mentioning `session_replay_pages` or `session_replay_events`, or
+`migration-engagement-metrics.sql` for an older engagement table or column. If
+the error names an older session column such as `session_id`, the original
 `migration-session-grouping.sql` was not completed.
 
 ### D1 says "Requests without any query are not supported"
