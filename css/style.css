@@ -6874,6 +6874,11 @@ body.lightbox-open .home-featured-project-collage-item:focus-within figcaption {
     margin-top: 0;
 }
 
+.home-featured-project-panel .project-card-subtitle {
+    width: 100%;
+    max-width: none;
+}
+
 .home-featured-project-panel .card_project-title {
     font-size: clamp(1.5rem, 2.1vw, 2.2rem);
 }

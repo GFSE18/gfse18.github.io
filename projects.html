@@ -48,7 +48,7 @@
                 href="projects.html"
               >
                 <div class="nav-link-icon">🛠</div>
-                <div class="nav-link-text">Projects</div></a
+                <div class="nav-link-text">Other Projects</div></a
               ><a class="sidenav_link w-inline-block" href="experience.html">
                 <div class="nav-link-icon">⚙</div>
                 <div class="nav-link-text">Experience</div></a
@@ -127,11 +127,12 @@
                   <div class="main_header project-page-header">
                     <div class="max-width-medium">
                       <h1 text-animate="" class="heading_main">
-                        Engineering Projects
+                        Other Projects
                       </h1>
                       <p class="project-page-intro">
-                        Robotics, mechanical design, manufacturing research, and
-                        validation—from concept through fabrication and testing.
+                        Additional robotics, mechanical design, manufacturing
+                        research, and validation projects—from concept through
+                        fabrication and testing.
                       </p>
                     </div>
                   </div>
@@ -1167,20 +1168,21 @@
     </div>
     <script>
       const projectGrid = document.querySelector(".main_grid.is-projects");
-      const featuredProjectOrder = [
+      const featuredProjectDestinations = [
         "arcc-2026-sentry.html",
         "pura-mech-test.html",
         "hbp-validation.html",
         "arcc-2026-infantry.html",
         "arcc-2026-hero.html",
+        "arcc-2026-robot-fleet.html",
       ];
 
-      [...featuredProjectOrder].reverse().forEach((destination) => {
+      featuredProjectDestinations.forEach((destination) => {
         const titleLink = projectGrid?.querySelector(
           `.card_project-title[href="${destination}"]`,
         );
         const listItem = titleLink?.closest(".collection-item");
-        if (listItem) projectGrid.prepend(listItem);
+        if (listItem) listItem.remove();
       });
 
       document.querySelectorAll(".card_project").forEach((card) => {
