@@ -6828,6 +6828,10 @@ footer{
     transition: opacity .25s ease;
 }
 
+.home-featured-mobile-hint {
+    display: none;
+}
+
 .home-featured-project-collage-item:hover::after,
 .home-featured-project-collage-item:focus-within::after {
     opacity: 1;
@@ -6968,20 +6972,45 @@ body.lightbox-open .home-featured-project-collage-item:focus-within figcaption {
         aspect-ratio: 1 / 1;
     }
 
-    .home-featured-project-collage-item figcaption {
-        opacity: 1;
-    }
-
-    .home-featured-project-collage-item::after {
-        opacity: .35;
-    }
-
     .home-featured-project-panel {
         padding: 1.5rem 1.25rem;
     }
 
     .home-featured-project-scroll {
         overflow: visible;
+    }
+}
+
+@media screen and (max-width: 767px) and (hover: none) {
+    .home-featured-mobile-hint {
+        display: block;
+        margin: .5rem 0 1rem;
+        color: #bdbdbd;
+        font-size: .85rem;
+    }
+
+    .home-featured-project-collage-item:not(.is-caption-visible)::after,
+    .home-featured-project-collage-item:not(.is-caption-visible) figcaption {
+        opacity: 0;
+    }
+
+    .home-featured-project-collage-item:not(.is-caption-visible) img {
+        filter: saturate(.9);
+        transform: none;
+    }
+
+    .home-featured-project-collage-item.is-caption-visible::after,
+    .home-featured-project-collage-item.is-caption-visible figcaption {
+        opacity: 1;
+    }
+
+    .home-featured-project-collage-item.is-caption-visible img {
+        filter: saturate(.7) brightness(.42);
+        transform: scale(1.025);
+    }
+
+    .home-featured-project-collage-item.is-caption-visible figcaption {
+        color: #fff;
     }
 }
 
@@ -8109,6 +8138,16 @@ body.lightbox-open {
     display: block;
 }
 
+.ded-pressure-grid .project-detail-media-content {
+    aspect-ratio: 1;
+    object-fit: contain;
+    background: #fff;
+}
+
+#pressure-gallery .project-detail-media-grid + .project-detail-media-grid {
+    margin-top: 1rem;
+}
+
 .project-detail-subsection-title {
     margin-top: 2.25rem;
     margin-bottom: 0.85rem;
@@ -8180,6 +8219,20 @@ body.lightbox-open {
 @media screen and (max-width: 767px) {
   .project-detail-media-grid.is-four {
     grid-template-columns: 1fr;
+  }
+}
+
+@media screen and (max-width: 767px) {
+  #pressure-gallery .project-detail-media-grid.is-three,
+  #pressure-gallery .project-detail-media-grid.is-four {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+
+  #pressure-gallery .project-detail-caption {
+    margin-top: 0.45rem;
+    font-size: 0.7rem;
+    line-height: 1.3;
   }
 }
 

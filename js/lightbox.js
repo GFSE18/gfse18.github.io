@@ -93,6 +93,12 @@ document.addEventListener("DOMContentLoaded", () => {
      ========================================= */
 
   const images = document.querySelectorAll("img");
+  const touchCollage = window.matchMedia("(max-width: 767px) and (hover: none)");
+
+  function clearCollageCaptions() {
+    document.querySelectorAll(".home-featured-project-collage-item.is-caption-visible")
+      .forEach((item) => item.classList.remove("is-caption-visible"));
+  }
 
   images.forEach((image) => {
     /*
@@ -117,6 +123,15 @@ document.addEventListener("DOMContentLoaded", () => {
     image.setAttribute("role", "button");
 
     image.addEventListener("click", () => {
+      const collageItem = image.closest(".home-featured-project-collage-item");
+      if (touchCollage.matches && collageItem) {
+        if (!collageItem.classList.contains("is-caption-visible")) {
+          clearCollageCaptions();
+          collageItem.classList.add("is-caption-visible");
+          return;
+        }
+        clearCollageCaptions();
+      }
       openLightbox(image);
     });
 
@@ -126,6 +141,12 @@ document.addEventListener("DOMContentLoaded", () => {
         openLightbox(image);
       }
     });
+  });
+
+  document.addEventListener("click", (event) => {
+    if (touchCollage.matches && !event.target.closest(".home-featured-project-collage-item")) {
+      clearCollageCaptions();
+    }
   });
 
   document.addEventListener("portfolio:replay-lightbox", (event) => {
